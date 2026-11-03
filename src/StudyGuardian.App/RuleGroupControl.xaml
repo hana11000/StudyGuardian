@@ -1,0 +1,25 @@
+<UserControl x:Class="StudyGuardian.App.RuleGroupControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid Margin="0,10">
+    <Grid.ColumnDefinitions><ColumnDefinition Width="70" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+    <StackPanel Orientation="Horizontal" VerticalAlignment="Top" Margin="0,8,0,0">
+      <Ellipse x:Name="KindDot" Width="7" Height="7" Margin="0,0,8,0" />
+      <TextBlock x:Name="KindLabel" FontWeight="SemiBold" />
+    </StackPanel>
+    <StackPanel Grid.Column="1">
+      <WrapPanel x:Name="TagsPanel" />
+      <Grid x:Name="EditorPanel" Visibility="Collapsed" Margin="0,8,0,0">
+        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="118" /><ColumnDefinition Width="*" /><ColumnDefinition Width="38" /><ColumnDefinition Width="38" /></Grid.ColumnDefinitions>
+        <ComboBox x:Name="MatchTypeBox" SelectedIndex="0" Margin="0,0,8,0" SelectionChanged="TypeChanged" AutomationProperties.Name="匹配方式">
+          <ComboBoxItem Content="进程" /><ComboBoxItem Content="域名" /><ComboBoxItem Content="网址" /><ComboBoxItem Content="标题正则" />
+        </ComboBox>
+        <TextBox x:Name="PatternBox" Grid.Column="1" KeyDown="PatternKeyDown" AutomationProperties.Name="规则内容" />
+        <Button Grid.Column="2" Content="✓" Margin="6,0,0,0" Padding="0" Click="ConfirmClick" ToolTip="添加" AutomationProperties.Name="确认添加规则" />
+        <Button Grid.Column="3" Content="×" Margin="6,0,0,0" Padding="0" Click="CancelClick" ToolTip="取消" AutomationProperties.Name="取消添加规则" />
+        <TextBlock x:Name="ErrorText" Grid.Row="1" Grid.ColumnSpan="4" Foreground="{StaticResource DangerBrush}" Margin="0,6,0,0" TextWrapping="Wrap" Visibility="Collapsed" FontSize="12" />
+      </Grid>
+    </StackPanel>
+  </Grid>
+</UserControl>

@@ -1,0 +1,22 @@
+# M1 progress — plan: docs/m1-plan.md
+
+- 2026-11-02：用户确认开始 M1。
+- 环境：机器仅有旧运行时，无 SDK；安装已校验的官方 8.0.427 到 .tools/dotnet。
+- Pre-flight: Core 定义 WindowSnapshot/ActivitySegment，Data 与 App 使用同一类型；Monitor 仅依赖 Core；App 引用三者；Core 不引用 Windows。
+- Ruling: 当前目录无 Git 仓库，使用已授权的空目录完成实现，省略 worktree/commit 脚本；不改变交付范围。
+- Ruling: M1 使用 source=monitor、verdict=NULL，避免把采集结果当成学习判定；后续 M2 增加判断来源。
+- Task 1: complete — Core 假时钟测试先 RED（20 项 NotImplemented），实现后 20/20 通过。
+- Task 2: complete — SQLite 集成测试先 RED（8 项未实现），实现后全套 28/28 通过。
+- Task 3: implementation complete — WPF、原生事件、空闲检测、串行保存、启动/关闭、发布脚本已实现；交互验收未完成。
+- 构建环境：MSBuild 多节点在受限环境无法工作，包装脚本使用单节点和非共享编译器；VSTest 本机通信需工具权限提升，提升后测试正常。未修改系统 PATH。
+- 用户追加 BoardUI MCP：通过官方 npm 元数据安装 npx 工具到用户 Codex tools 目录，注册 boardui；版本 0.5.9，initialize/tools/list/get_theme/list_components 均成功。未改成 React。
+- Final review: 独立只读 reviewer 提出 3 项 P2，逐项核实并修复，无 critical。
+- Final: fixed 会话结束时钟变化 — LogicalSessionEndIsFrozenBeforeWallClockJumpAndSaveDelay、SessionEndMatchesTheFinalEventAfterForwardClockChangeAndDelayedWrite RED→GREEN；UI 在等待保存前使用冻结的逻辑结束时间。
+- Final: fixed 自动保存跨越空闲边界 — CheckpointOnlyPersistsTimeThatHasAlreadyBeenClassified、IdleSplitAfterCheckpointDoesNotOverlapPersistedSegments RED→GREEN；只保存已分类的时间区间。
+- Final: fixed 远程重连误清锁屏 — 3 项 SystemPauseStateTests RED→GREEN；锁屏、断开连接、睡眠分别存储状态。
+- 三项修复后的完整测试：35/35 通过，TRX 位于 .artifacts/tests/m1-final.trx。
+- Review scope rulings: AI/拦截/URL/密钥/自启留给后续里程碑；当前无历史产品数据库需要迁移；M1 按单一 Windows 登录会话运行，跨登录会话共用数据库未验证。
+- GUI：初始窗口成功打开；发现并修复派生 Window 未应用隐式 Window 样式导致的白色背景。随后用户以物理 Esc 停止 Computer Use，此后不再操作桌面。未声称完成真实切换窗口、锁屏/睡眠、最终样式的交互验收。
+- 用户新界面要求已落实：删除口号、说明段落和常驻提示；以控件/状态表达，记录文件路径改成目录入口；错误信息精简。
+- 发布时旧 dist/StudyGuardian 的 DLL 被外部进程占用。遵守用户停止桌面操作的指示，不关闭/终止进程；新版改为 dist/StudyGuardian-M1，Start.cmd 指向新版，旧数据保留。
+- Final delivery: 最新 build 0 warnings / 0 errors；完整 test 35/35；self-contained win-x64 publish 到 dist/StudyGuardian-M1 成功。没有执行后续里程碑。

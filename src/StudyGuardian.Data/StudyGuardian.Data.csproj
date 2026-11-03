@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../StudyGuardian.Core/StudyGuardian.Core.csproj" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.33" />
+    <EmbeddedResource Include="schema.sql" />
+  </ItemGroup>
+</Project>

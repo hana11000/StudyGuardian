@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>StudyGuardian.App</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../StudyGuardian.Core/StudyGuardian.Core.csproj" />
+    <ProjectReference Include="../StudyGuardian.Monitor/StudyGuardian.Monitor.csproj" />
+    <ProjectReference Include="../StudyGuardian.Data/StudyGuardian.Data.csproj" />
+    <Content Include="../../config/defaults.json" Link="config/defaults.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

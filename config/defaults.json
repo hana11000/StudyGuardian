@@ -1,0 +1,28 @@
+{
+  "monitoring": {
+    "awayAfterSeconds": 300,
+    "idleSampleMilliseconds": 1000,
+    "checkpointSeconds": 15,
+    "recentEventLimit": 200,
+    "maximumTitleCharacters": 2048,
+    "databasePath": "data/study-guardian.db",
+    "protectedProcesses": [
+      "StudyGuardian.App.exe", "StudyGuardian.Watchdog.exe", "explorer.exe",
+      "taskmgr.exe", "LockApp.exe", "SystemSettings.exe", "ApplicationFrameHost.exe",
+      "TextInputHost.exe", "InputApp.exe", "ctfmon.exe", "ChsIME.exe", "ChsIMEHost.exe",
+      "ShellExperienceHost.exe", "StartMenuExperienceHost.exe", "SearchHost.exe",
+      "SearchApp.exe", "sihost.exe", "dwm.exe", "winlogon.exe", "LogonUI.exe",
+      "CredentialUIBroker.exe", "consent.exe", "SecurityHealthSystray.exe"
+    ]
+  },
+  "session": {
+    "presetMinutes": [25, 50, 90],
+    "defaultDurationMinutes": 50,
+    "minimumDurationMinutes": 1,
+    "maximumDurationMinutes": 1440,
+    "defaultStrictness": "Standard",
+    "decisionDwellSeconds": 5,
+    "regexTimeoutMilliseconds": 100,
+    "floatingOpacity": 0.94
+  }
+}

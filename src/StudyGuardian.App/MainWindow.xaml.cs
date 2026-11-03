@@ -5,6 +5,7 @@ using System.IO;
 using System.Windows;
 using StudyGuardian.Core;
 using StudyGuardian.Data;
+using StudyGuardian.Monitor;
 
 namespace StudyGuardian.App;
 
@@ -26,10 +27,20 @@ public partial class MainWindow : Window
     private readonly UserSettingsStore _preferences;
     private readonly MonitoringOptions _monitoringOptions;
     private bool _appealing;
+    private readonly DesktopOptions _desktopOptions;
+    private readonly WatchdogClient _watchdog;
+    private readonly AutostartRegistration _autostart;
+    private TrayIcon? _tray;
+    private StrictExitWindow? _exitDialog;
+    private bool _systemExit;
+    private bool _exitPending;
+    private readonly Func<Task<bool>> _confirmExit;
 
-    public MainWindow(MonitoringOptions options, SessionUiOptions sessionOptions, AiOptions aiOptions, InterventionOptions interventionOptions, BrowserOptions browserOptions,SessionToolsOptions toolsOptions,string databasePath)
+    public MainWindow(MonitoringOptions options, SessionUiOptions sessionOptions, AiOptions aiOptions, InterventionOptions interventionOptions, BrowserOptions browserOptions,SessionToolsOptions toolsOptions,DesktopOptions desktopOptions,WatchdogClient watchdog,string databasePath,Func<Task<bool>>? confirmExit=null)
     {
         InitializeComponent();
+        _desktopOptions=desktopOptions;_watchdog=watchdog;_confirmExit=confirmExit ?? ConfirmExitAsync;
+        _autostart=new(Path.Combine(AppContext.BaseDirectory,"StudyGuardian.App.exe"),new RegistryStartupValueStore());
         _sessionOptions = sessionOptions;_monitoringOptions=options;
         _preferences=new(Path.GetDirectoryName(databasePath)!,interventionOptions);
         _recentLimit = options.RecentEventLimit;
@@ -50,10 +61,20 @@ public partial class MainWindow : Window
     {
         _operation = _controller.InitializeAsync();
         await _operation;
+        if(_closing) return;
+        _tray=new(ShowMain,ShowFloating,()=>_ = TogglePauseAsync(),()=>_controller.BeginBreak(),Close);
+        ApplyDesktopSettings();UpdateState();
         if ((_aiSettings.LoadError ?? _preferences.LoadError) is { } error) { NoticeText.Text = error; NoticeBorder.Visibility = Visibility.Visible; }
     }
     private void SettingsClick(object sender, RoutedEventArgs e)
-    { new SettingsWindow(_aiSettings, _controller,_preferences) { Owner = this }.ShowDialog();_interventions.Dispose();_interventions=CreateInterventions();UpdateState(); }
+    { new SettingsWindow(_aiSettings, _controller,_preferences,_autostart) { Owner = this }.ShowDialog();_interventions.Dispose();_interventions=CreateInterventions();ApplyDesktopSettings();UpdateState(); }
+    private void ApplyDesktopSettings()
+    {
+        try {_watchdog.SetEnabled(_preferences.Current.Desktop?.Watchdog==true);}
+        catch(Exception) {NoticeText.Text="守护启动失败，请使用完整发布包";NoticeBorder.Visibility=Visibility.Visible;}
+    }
+    public void AllowSystemExit()
+    {_systemExit=true;_watchdog.Stop();_exitDialog?.Close();}
     private InterventionPresenter CreateInterventions()
     {
         var presenter=new InterventionPresenter(_preferences.Current.Intervention,new(_monitoringOptions.ProtectedProcesses,Environment.ProcessId,_monitoringOptions.MaximumTitleCharacters),Dispatcher,ShowMain);
@@ -132,6 +153,7 @@ public partial class MainWindow : Window
     private void ShowMain()
     {
         if (_closing) return;
+        if(_exitDialog is { } dialog) {dialog.Activate();return;}
         Show();
         WindowState = WindowState.Normal;
         Activate();
@@ -140,6 +162,7 @@ public partial class MainWindow : Window
     {
         var state = _controller.Snapshot;
         var active = _controller.HasSession;
+        _tray?.Update(state.IsRunning,state.IsManuallyPaused || _controller.IsOnBreak,_controller.CanUseTools);
         if (!_closing) _interventions.Update(state, _controller.Escalation, _controller.Options?.Policy?.GoalSummary ?? _controller.Options?.Goal ?? "", _controller.LastStudyWindow,_controller.Tools,_controller.CanAppeal);
         SetupControl.Visibility = active ? Visibility.Collapsed : Visibility.Visible;
         StartButton.Visibility = active || HistoryPanel.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
@@ -218,19 +241,39 @@ public partial class MainWindow : Window
             NoticeText.ToolTip = ex.Message;
         }
     }
+    private Task<bool> ConfirmExitAsync()
+    {
+        _exitDialog=new(_desktopOptions) {Owner=this};
+        try {return Task.FromResult(_exitDialog.ShowDialog()==true);}
+        finally {_exitDialog=null;}
+    }
     private async void OnClosing(object? sender, CancelEventArgs e)
     {
         if (_allowClose) return;
         e.Cancel = true;
-        if (_closing) return;
-        _closing = true;
-        _interventions.Dispose();
-        _generationCancellation?.Cancel();
-        UpdateState();
-        await _operation;
-        await _controller.DisposeAsync();
-        _floating?.ClosePermanently();
-        _allowClose = true;
-        Close();
+        if (_closing || _exitPending) return;
+        _exitPending=true;
+        // Leave WPF's Closing callback before a modal message loop or another Close.
+        await System.Windows.Threading.Dispatcher.Yield();
+        try
+        {
+            if(Dispatcher.HasShutdownStarted) return;
+            if(!_systemExit && _preferences.Current.Desktop?.StrictExit==true)
+            {
+                var approved=await _confirmExit();
+                if(!approved && !_systemExit) return;
+            }
+            _closing = true;
+            _watchdog.Stop();_tray?.Dispose();_tray=null;
+            _interventions.Dispose();
+            _generationCancellation?.Cancel();
+            UpdateState();
+            await _operation;
+            await _controller.DisposeAsync();
+            _floating?.ClosePermanently();
+            _allowClose = true;
+            Close();
+        }
+        finally {_exitPending=false;}
     }
 }

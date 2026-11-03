@@ -1,12 +1,15 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Windows;
+using System.IO;
+using StudyGuardian.Monitor;
 
 namespace StudyGuardian.App;
 
 public partial class App : Application
 {
     private Mutex? _instanceMutex;
+    private WatchdogClient? _watchdog;
     private bool _ownsMutex;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -23,7 +26,11 @@ public partial class App : Application
                 Shutdown();
                 return;
             }
-            MainWindow = new MainWindow(configuration.Options, configuration.Session, configuration.Ai, configuration.Intervention, configuration.Browser,configuration.SessionTools,configuration.DatabasePath);
+            var inherited=e.Args.Length==2 && e.Args[0]=="--watchdog-managed"?e.Args[1]:null;
+            _watchdog=new(Path.Combine(AppContext.BaseDirectory,"StudyGuardian.App.exe"),inherited);
+            if(_watchdog.IsStopping) {Shutdown();return;}
+            ShutdownMode=ShutdownMode.OnMainWindowClose;
+            MainWindow = new MainWindow(configuration.Options, configuration.Session, configuration.Ai, configuration.Intervention, configuration.Browser,configuration.SessionTools,configuration.Desktop,_watchdog,configuration.DatabasePath);
             MainWindow.Show();
         }
         catch (Exception ex)
@@ -33,8 +40,15 @@ public partial class App : Application
         }
     }
 
+    protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
+    {
+        _watchdog?.Stop();
+        if(MainWindow is MainWindow window) window.AllowSystemExit();
+        base.OnSessionEnding(e);
+    }
     protected override void OnExit(ExitEventArgs e)
     {
+        _watchdog?.Dispose();
         if (_ownsMutex) _instanceMutex?.ReleaseMutex();
         _instanceMutex?.Dispose();
         base.OnExit(e);

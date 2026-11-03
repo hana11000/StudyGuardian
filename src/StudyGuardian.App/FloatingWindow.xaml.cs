@@ -37,6 +37,7 @@ public partial class FloatingWindow : Window
     public void ClosePermanently() { _allowClose = true; Close(); }
     private void PauseClick(object sender, RoutedEventArgs e) => PauseRequested?.Invoke(this, EventArgs.Empty);
     private void OpenMainClick(object sender, RoutedEventArgs e) => OpenMainRequested?.Invoke(this, EventArgs.Empty);
+    private void HideClick(object sender,RoutedEventArgs e) => Hide();
     private void BreakClick(object sender,RoutedEventArgs e) => BreakRequested?.Invoke(this,EventArgs.Empty);
     private void OnClosing(object? sender, CancelEventArgs e)
     {

@@ -50,6 +50,11 @@
     <local:RuleGroupControl x:Name="GlobalAllowRules" Margin="0,0,0,16"/>
     <local:RuleGroupControl x:Name="GlobalSupportiveRules" Margin="0,0,0,16"/>
     <local:RuleGroupControl x:Name="GlobalBlockRules"/>
+    <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,24" />
+    <TextBlock Text="桌面" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,16" />
+    <CheckBox x:Name="StrictExitBox" Content="严格退出" Foreground="{StaticResource TextBrush}" Margin="0,0,0,12" />
+    <CheckBox x:Name="WatchdogBox" Content="意外退出后重启" Foreground="{StaticResource TextBrush}" Margin="0,0,0,12" />
+    <CheckBox x:Name="AutostartBox" Content="开机启动" Foreground="{StaticResource TextBrush}" />
     </StackPanel>
     </ScrollViewer>
     <StackPanel Grid.Row="1">

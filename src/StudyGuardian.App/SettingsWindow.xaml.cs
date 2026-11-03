@@ -4,6 +4,7 @@ using System.Windows;
 using System.Globalization;
 using StudyGuardian.Core;
 using StudyGuardian.Data;
+using StudyGuardian.Monitor;
 
 namespace StudyGuardian.App;
 
@@ -11,16 +12,22 @@ public partial class SettingsWindow : Window
 {
     private readonly AiSettingsStore _store;
     private bool _clearKey;
+    private readonly AutostartRegistration _autostart;
+    private bool _initialAutostart;
     private readonly SessionController _controller;
     private readonly UserSettingsStore _preferences;
-    public SettingsWindow(AiSettingsStore store, SessionController controller,UserSettingsStore preferences)
+    public SettingsWindow(AiSettingsStore store, SessionController controller,UserSettingsStore preferences,AutostartRegistration autostart)
     {
         InitializeComponent(); _store = store; _controller=controller;_preferences=preferences;
         EnabledBox.IsChecked = store.Current.Enabled; ModelBox.Text = store.Current.Model;
         KeyStatus.Text = store.HasKey ? "已保存" : "未设置";
         ClearKeyButton.IsEnabled = store.HasKey;
         BrowserPortText.Text=controller.BrowserPort.ToString(); PairingStatusText.Text=controller.BrowserConnectionStatus;
+        _autostart=autostart;
+        try {AutostartBox.IsChecked=_initialAutostart=autostart.IsEnabled;}
+        catch(Exception) {AutostartBox.IsEnabled=false;ShowError("无法读取自启设置");}
         var current=preferences.Current;
+        StrictExitBox.IsChecked=current.Desktop?.StrictExit==true;WatchdogBox.IsChecked=current.Desktop?.Watchdog==true;
         ReminderBox.Text=current.Intervention.ReminderSeconds.ToString(CultureInfo.InvariantCulture);
         WarningBox.Text=current.Intervention.WarningSeconds.ToString(CultureInfo.InvariantCulture);
         BlockBox.Text=current.Intervention.BlockSeconds.ToString(CultureInfo.InvariantCulture);
@@ -54,6 +61,7 @@ public partial class SettingsWindow : Window
         var next=_preferences.Current with
         {
             Intervention=_preferences.Current.Intervention with {ReminderSeconds=reminder,WarningSeconds=warning,BlockSeconds=blocked,BlockLockSeconds=locked,SoundEnabled=SoundBox.IsChecked==true},
+            Desktop=new(StrictExitBox.IsChecked==true,WatchdogBox.IsChecked==true),
             GlobalRules=[..allow,..supportive,..block],Privacy=new(SendTitleBox.IsChecked==true,SendUrlBox.IsChecked==true)
         };
         try {next.Validate();if(blocked*Math.Max(next.Intervention.GentleMultiplier,next.Intervention.StrictMultiplier)>=TimeSpan.MaxValue.TotalSeconds || locked>=TimeSpan.MaxValue.TotalSeconds) throw new ArgumentException();}
@@ -62,9 +70,10 @@ public partial class SettingsWindow : Window
         {
             _store.Save(new(EnabledBox.IsChecked == true, ModelBox.Text.Trim()), KeyBox.Password, _clearKey);
             _preferences.Save(next);
+            if(AutostartBox.IsEnabled && (AutostartBox.IsChecked==true)!=_initialAutostart) {_autostart.SetEnabled(AutostartBox.IsChecked==true);_initialAutostart=AutostartBox.IsChecked==true;}
             KeyBox.Clear(); DialogResult = true;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or Win32Exception) { ShowError("保存失败，请检查目录权限"); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or Win32Exception or InvalidOperationException or System.Security.SecurityException) { ShowError("保存失败，请检查目录权限"); }
     }
     private void ShowError(string text) { ErrorText.Text = text; ErrorText.Visibility = Visibility.Visible; }
 }

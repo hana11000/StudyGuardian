@@ -1,0 +1,1 @@
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>WinExe</OutputType><TargetFramework>net8.0-windows</TargetFramework></PropertyGroup><ItemGroup><ProjectReference Include="../StudyGuardian.Monitor/StudyGuardian.Monitor.csproj" /></ItemGroup></Project>

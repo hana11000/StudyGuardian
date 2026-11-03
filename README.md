@@ -1,10 +1,10 @@
 # Study Guardian
 
-Windows 学习专注工具。当前交付阶段：**M6：申诉、应急通行、休息、报告和设置**。
+Windows 学习专注工具。当前交付阶段：**M7：严格退出、守护、自启和安装包**。
 
 ## 使用
 
-双击根目录 `Start.cmd`，或 `dist/StudyGuardian-M6/StudyGuardian.App.exe`。
+双击根目录 `Start.cmd`，或 `dist/StudyGuardian-M7/StudyGuardian.App.exe`。
 
 1. 填写学习目标，选择 25/50/90 分钟或自定义时长、严格度。
 2. 在“允许 / 辅助 / 禁止”中点 `+` 添加规则，点标签的 `×` 删除；配置 API 后也可点“生成规则”，检查并修改标签，再开始。
@@ -12,7 +12,11 @@ Windows 学习专注工具。当前交付阶段：**M6：申诉、应急通行�
 4. 悬浮窗的暂停按钮可暂停/继续，`↗` 返回主窗口；主窗口可结束会话。
 5. 点 **活动记录** 查看最近记录，点 **记录文件** 打开数据库所在目录。
 
-发布目录附带运行时，无需另装 .NET。移动时请保留整个发布文件夹。旧 M1 目录和数据保留在原处，不自动搬迁。
+发布目录附带运行时，无需另装 .NET。移动时请保留整个发布文件夹。也可解压 dist/StudyGuardian-M7.zip 后运行 Install.cmd，安装到当前用户目录并添加开始菜单入口。安装升级保留 data；便携版升级可在两个程序均关闭时，将旧 data 复制到新目录。旧目录不会自动搬迁。
+
+严格退出、意外退出后重启、开机启动均在设置中独立开启，默认关闭。严格退出要求输入指定文字再等待 60 秒；取消可回到程序。守护只处理意外退出，正常关闭和关机不会重启，重启后不自动开始采集。连续快速失败最多重启 3 次。自启仅设置当前用户、当前安装目录对应的启动项；移动目录前先关闭自启。
+
+托盘菜单可打开主窗口、显示悬浮窗、暂停/继续、休息和退出；悬浮窗的 `−` 收起到托盘。
 
 ## 规则
 
@@ -79,6 +83,9 @@ SELECT goal, policy_json, strictness, status FROM sessions ORDER BY start DESC;
 .\scripts\dotnet.ps1 build StudyGuardian.sln -c Release
 .\scripts\dotnet.ps1 test StudyGuardian.sln -c Release
 .\scripts\publish.ps1
+node --test extension/tests/*.test.mjs
+.\scripts\test-install.ps1
+.\scripts\test-watchdog.ps1
 ```
 
 SDK 和缓存位于项目目录，不修改系统 PATH。受限环境可能需要允许测试宿主的本机 IPC。构建前关闭正在运行的同目录程序；发布包另放在 `dist`。
@@ -87,8 +94,8 @@ SDK 和缓存位于项目目录，不修改系统 PATH。受限环境可能需�
 
 ## 验证和后续开发
 
-[M6 手动验收](docs/m6-manual-test.md) · [M6 改动文件](docs/m6-files.md) · [M5 手动验收](docs/m5-manual-test.md) · [M5 改动文件](docs/m5-files.md) · [M4 手动验收](docs/m4-manual-test.md) · [M3 手动验收](docs/m3-manual-test.md) · [设计](docs/design.md) · [开发约束](AGENTS.md)
+[M7 手动验收](docs/m7-manual-test.md) · [M7 改动文件](docs/m7-files.md) · [M6 手动验收](docs/m6-manual-test.md) · [M6 改动文件](docs/m6-files.md) · [M5 手动验收](docs/m5-manual-test.md) · [M5 改动文件](docs/m5-files.md) · [M4 手动验收](docs/m4-manual-test.md) · [M3 手动验收](docs/m3-manual-test.md) · [设计](docs/design.md) · [开发约束](AGENTS.md)
 
-用户已授权后续逐阶段推进。严格退出/守护模式留给 M7。尚未提供真实 API Key，在线调用待人工验收。M6 的 174 项 .NET 测试和 11 项扩展测试通过。真实浏览器加载、在线判定、多显示器/多 DPI 和遮罩按钮交互保留人工验收。
+M1–M7 已实现。183 项 .NET 测试和 11 项扩展测试通过。独立进程验收中，意外退出后约 0.66 秒重启，正常退出不重启，快速崩溃到达上限后停止；安装测试覆盖升级保留数据、目录边界、校验和及规范化路径。真实 API、浏览器加载/跳转、Windows 登录/关机、多显示器/多 DPI 和遮罩按钮仍需人工验收。发布包未做代码签名。
 
 BoardUI MCP 已在开发机安装并验证。它的 React/Tailwind 组件不直接用于 WPF；本项目参考布局层级，使用原生 WPF 实现，未添加 UI 框架依赖。

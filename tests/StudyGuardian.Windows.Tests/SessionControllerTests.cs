@@ -48,7 +48,7 @@ public class SessionControllerTests
         }
         finally {if(Directory.Exists(directory)) Directory.Delete(directory,true);}
     });
-    private static Task RunDispatcher(Func<Dispatcher,Task> body)
+    internal static Task RunDispatcher(Func<Dispatcher,Task> body)
     {
         var completed=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var thread=new Thread(()=>

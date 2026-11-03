@@ -1,6 +1,6 @@
 namespace StudyGuardian.Core;
 
-public sealed record UserPreferences(InterventionOptions Intervention,IReadOnlyList<StudyRule> GlobalRules,AiPrivacy Privacy)
+public sealed record UserPreferences(InterventionOptions Intervention,IReadOnlyList<StudyRule> GlobalRules,AiPrivacy Privacy,DesktopPreferences? Desktop=null)
 {
     public void Validate()
     {

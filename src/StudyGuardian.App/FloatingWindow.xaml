@@ -21,6 +21,7 @@
       <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,5,0,0">
         <Button x:Name="PauseButton" Content="Ⅱ" Padding="7,4" Background="Transparent" BorderThickness="0" Click="PauseClick" ToolTip="暂停" AutomationProperties.Name="暂停" />
         <Button x:Name="BreakButton" Content="☕" Padding="7,4" Background="Transparent" BorderThickness="0" Click="BreakClick" ToolTip="休息" AutomationProperties.Name="休息" />
+        <Button Content="−" Padding="7,4" Background="Transparent" BorderThickness="0" Click="HideClick" ToolTip="收起到托盘" AutomationProperties.Name="收起到托盘" />
         <Button Content="↗" Padding="7,4" Background="Transparent" BorderThickness="0" Click="OpenMainClick" ToolTip="打开主窗口" AutomationProperties.Name="打开主窗口" />
       </StackPanel>
     </Grid>

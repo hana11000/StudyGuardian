@@ -7,12 +7,29 @@
     "maximumTitleCharacters": 2048,
     "databasePath": "data/study-guardian.db",
     "protectedProcesses": [
-      "StudyGuardian.App.exe", "StudyGuardian.Watchdog.exe", "explorer.exe",
-      "taskmgr.exe", "LockApp.exe", "SystemSettings.exe", "ApplicationFrameHost.exe",
-      "TextInputHost.exe", "InputApp.exe", "ctfmon.exe", "ChsIME.exe", "ChsIMEHost.exe",
-      "ShellExperienceHost.exe", "StartMenuExperienceHost.exe", "SearchHost.exe",
-      "SearchApp.exe", "sihost.exe", "dwm.exe", "winlogon.exe", "LogonUI.exe",
-      "CredentialUIBroker.exe", "consent.exe", "SecurityHealthSystray.exe"
+      "StudyGuardian.App.exe",
+      "StudyGuardian.Watchdog.exe",
+      "explorer.exe",
+      "taskmgr.exe",
+      "LockApp.exe",
+      "SystemSettings.exe",
+      "ApplicationFrameHost.exe",
+      "TextInputHost.exe",
+      "InputApp.exe",
+      "ctfmon.exe",
+      "ChsIME.exe",
+      "ChsIMEHost.exe",
+      "ShellExperienceHost.exe",
+      "StartMenuExperienceHost.exe",
+      "SearchHost.exe",
+      "SearchApp.exe",
+      "sihost.exe",
+      "dwm.exe",
+      "winlogon.exe",
+      "LogonUI.exe",
+      "CredentialUIBroker.exe",
+      "consent.exe",
+      "SecurityHealthSystray.exe"
     ]
   },
   "intervention": {
@@ -45,8 +62,31 @@
     "maximumSupportiveMinutes": 60,
     "defaultSupportiveMinutes": 5,
     "recentActivityLimit": 5,
-    "browserProcesses": ["chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", "opera.exe", "vivaldi.exe", "arc.exe"],
-    "mixedContentDomains": ["bilibili.com", "zhihu.com", "weixin.qq.com", "wechat.com", "youtube.com", "youtu.be", "reddit.com", "douyin.com", "weibo.com", "x.com", "twitter.com", "baidu.com", "bing.com", "google.com"]
+    "browserProcesses": [
+      "chrome.exe",
+      "msedge.exe",
+      "firefox.exe",
+      "brave.exe",
+      "opera.exe",
+      "vivaldi.exe",
+      "arc.exe"
+    ],
+    "mixedContentDomains": [
+      "bilibili.com",
+      "zhihu.com",
+      "weixin.qq.com",
+      "wechat.com",
+      "youtube.com",
+      "youtu.be",
+      "reddit.com",
+      "douyin.com",
+      "weibo.com",
+      "x.com",
+      "twitter.com",
+      "baidu.com",
+      "bing.com",
+      "google.com"
+    ]
   },
   "sessionTools": {
     "appealMinutes": 10,
@@ -70,11 +110,21 @@
     "maximumClients": 8,
     "maximumUrlCharacters": 4096,
     "maximumTitleCharacters": 2048,
-    "processes": ["chrome.exe", "msedge.exe"],
-    "titleSuffixes": [" - Google Chrome", " - Microsoft Edge"]
+    "processes": [
+      "chrome.exe",
+      "msedge.exe"
+    ],
+    "titleSuffixes": [
+      " - Google Chrome",
+      " - Microsoft Edge"
+    ]
   },
   "session": {
-    "presetMinutes": [25, 50, 90],
+    "presetMinutes": [
+      25,
+      50,
+      90
+    ],
     "defaultDurationMinutes": 50,
     "minimumDurationMinutes": 1,
     "maximumDurationMinutes": 1440,
@@ -82,5 +132,14 @@
     "decisionDwellSeconds": 5,
     "regexTimeoutMilliseconds": 100,
     "floatingOpacity": 0.94
+  },
+  "desktop": {
+    "exitPhrase": "我要结束这次专注",
+    "exitDelaySeconds": 60,
+    "uiTickMilliseconds": 250,
+    "watchdogPollMilliseconds": 250,
+    "restartDelayMilliseconds": 500,
+    "rapidFailureSeconds": 60,
+    "maximumRapidRestarts": 3
   }
 }

@@ -3,10 +3,15 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <!-- WPF owns DPI via app.manifest; Windows Forms is used only for NotifyIcon. -->
+    <NoWarn>$(NoWarn);WFAC010</NoWarn>
     <AssemblyName>StudyGuardian.App</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
   <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
     <ProjectReference Include="../StudyGuardian.Core/StudyGuardian.Core.csproj" />
     <ProjectReference Include="../StudyGuardian.Monitor/StudyGuardian.Monitor.csproj" />
     <ProjectReference Include="../StudyGuardian.Data/StudyGuardian.Data.csproj" />

@@ -15,7 +15,7 @@ public partial class SessionSetupControl : UserControl
     public string Goal => GoalBox.Text.Trim();
     public SessionSetupControl() => InitializeComponent();
 
-    public void Initialize(SessionUiOptions options, AiOptions aiOptions)
+    public void Initialize(SessionUiOptions options, AiOptions aiOptions, Func<IReadOnlyList<RuleCandidate>>? candidateProvider = null)
     {
         _options = options;
         _aiOptions = aiOptions;
@@ -24,6 +24,7 @@ public partial class SessionSetupControl : UserControl
         AllowRules.Initialize(RuleKind.Allow, "允许", "SuccessBrush");
         SupportiveRules.Initialize(RuleKind.Supportive, "辅助", "AmberBrush");
         BlockRules.Initialize(RuleKind.Block, "禁止", "DangerBrush");
+        AllowRules.CandidateProvider = SupportiveRules.CandidateProvider = BlockRules.CandidateProvider = candidateProvider;
         foreach (var minutes in options.PresetMinutes)
         {
             var choice = new RadioButton { Content = minutes.ToString(CultureInfo.CurrentCulture), Tag = minutes,

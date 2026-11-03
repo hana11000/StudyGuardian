@@ -48,7 +48,7 @@ public partial class MainWindow : Window
         _controller = new(options, sessionOptions, aiOptions, _aiSettings, interventionOptions, browserOptions,toolsOptions,_preferences,databasePath, Dispatcher);
         _interventions = CreateInterventions();
         _controller.ReturnRequested += (_, _) => _interventions.ReturnToStudy();
-        SetupControl.Initialize(sessionOptions, aiOptions);
+        SetupControl.Initialize(sessionOptions, aiOptions, _controller.GetRuleCandidates);
         SetupControl.GeneratePolicyRequested += GeneratePolicyRequested;
         _controller.StateChanged += (_, _) => UpdateState();
         _controller.SegmentSaved += (_, segment) => ShowSavedSegment(segment);
@@ -147,7 +147,7 @@ public partial class MainWindow : Window
             _floating.BreakRequested += (_,_)=>_controller.BeginBreak();
             _floating.OpenMainRequested += (_, _) => ShowMain();
         }
-        _floating.Update(_controller.Snapshot, _controller.Options!.Goal, _controller.Escalation,_controller.IsOnBreak?_controller.Tools.BreakRemaining:null,_controller.CanUseTools);
+        _floating.Update(_controller.Snapshot, _controller.Options!.Goal, _controller.Escalation,_controller.IsOnBreak?_controller.Tools.BreakRemaining:null,_controller.CanUseTools,_controller.AiStatus,_controller.AiStatusDetail);
         _floating.Show();
     }
     private void ShowMain()
@@ -170,6 +170,7 @@ public partial class MainWindow : Window
         SetupControl.IsEnabled = _controller.IsReady && !_controller.IsBusy && !_controller.IsFaulted && !_closing && !_generating;
         SettingsButton.IsEnabled = SetupControl.IsEnabled && !active;
         AiStatusText.Text = _controller.AiStatus;
+        AiStatusText.ToolTip = _controller.AiStatusDetail;
         StartButton.IsEnabled = SetupControl.IsEnabled;
         PauseButton.IsEnabled = FloatButton.IsEnabled = StopButton.IsEnabled = state.IsRunning && !_controller.IsBusy && !_controller.IsFaulted && !_closing;
         DataFolderButton.IsEnabled = _controller.IsReady;
@@ -192,7 +193,7 @@ public partial class MainWindow : Window
             WindowTitleText.Text = state.Window?.Title ?? "—";
             WindowTitleText.ToolTip = state.Window?.Title;
             PauseButton.Content = _controller.IsOnBreak?"结束休息":state.IsManuallyPaused ? "继续" : "暂停";
-            _floating?.Update(state, options.Goal, _controller.Escalation,_controller.IsOnBreak?_controller.Tools.BreakRemaining:null,_controller.CanUseTools);
+            _floating?.Update(state, options.Goal, _controller.Escalation,_controller.IsOnBreak?_controller.Tools.BreakRemaining:null,_controller.CanUseTools,_controller.AiStatus,_controller.AiStatusDetail);
         }
         SavedText.Text = _controller.IsBusy ? "保存中…" : _controller.LastSavedAt is { } saved ? "已保存 · " + saved.ToString("HH:mm:ss") : "";
         if (_controller.IsFaulted)

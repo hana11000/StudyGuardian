@@ -35,7 +35,7 @@ public sealed class SessionController : IAsyncDisposable
     private CancellationTokenSource? _aiCancellation;
     private long? _requestedRevision;
     private Task _aiWork = Task.CompletedTask;
-    private bool _aiUnavailable;
+    private readonly IStudyAi? _decisionAi;
     private readonly InterventionOptions _interventionOptions;
     private readonly SessionToolsOptions _toolsOptions;
     private readonly UserSettingsStore _preferences;
@@ -76,19 +76,41 @@ public sealed class SessionController : IAsyncDisposable
     public DateTime? LastSavedAt { get; private set; }
     public StudySessionOptions? Options { get; private set; }
     public StudySessionSnapshot Snapshot => _session.Snapshot;
-    public string AiStatus => !_aiSettings.IsConfigured ? "本地规则" : _aiUnavailable ? "AI 暂不可用" : "AI 已启用";
+    public string AiStatus
+    {
+        get
+        {
+            if (!_aiSettings.Current.Enabled) return "AI 已关闭";
+            if (!_aiSettings.HasKey) return "AI 未设置";
+            if (!Snapshot.IsRunning) return "AI 就绪";
+            if (Snapshot.PauseReason != PauseReason.None) return "AI 暂停";
+            if (Snapshot.Decision is { Source: DecisionSource.Fallback, Verdict: StudyVerdict.Supportive } fallback)
+                return $"{fallback.Reason} · {Math.Ceiling(_pipeline?.RetryRemaining.TotalSeconds ?? 0):0} 秒后重试";
+            if (Snapshot.Decision.Verdict == StudyVerdict.Unknown)
+                return _session.DecisionDwellRemaining > TimeSpan.Zero
+                    ? $"等待判断 · {Math.Ceiling(_session.DecisionDwellRemaining.TotalSeconds):0} 秒" : "AI 判断中";
+            var state = Snapshot.Decision.Source switch
+            {
+                DecisionSource.Rule => "本地规则", DecisionSource.Cache => "判定缓存", DecisionSource.Override => "临时放行",
+                _ => Snapshot.Decision.Verdict == StudyVerdict.Uncertain ? "AI 信息不足" : "AI 已判断"
+            };
+            return $"{state} · AI {_pipeline?.AttemptCount ?? 0} 次";
+        }
+    }
+    public string? AiStatusDetail => Snapshot.Decision.Reason;
     public EscalationSnapshot? Escalation => _escalation?.Snapshot;
     public WindowSnapshot? LastStudyWindow { get; private set; }
     public event EventHandler? StateChanged;
     public event EventHandler<ActivitySegment>? SegmentSaved;
 
     public SessionController(MonitoringOptions options, SessionUiOptions sessionOptions, AiOptions aiOptions, AiSettingsStore aiSettings, InterventionOptions interventionOptions, BrowserOptions browserOptions, SessionToolsOptions toolsOptions,UserSettingsStore preferences,string databasePath, Dispatcher dispatcher,
-        IForegroundWindowMonitor? foregroundMonitor=null,IIdleTimeProvider? idleProvider=null,IClock? clock=null)
+        IForegroundWindowMonitor? foregroundMonitor=null,IIdleTimeProvider? idleProvider=null,IClock? clock=null,IStudyAi? decisionAi=null)
     {
         _options = options;
         _clock=clock ?? new SystemClock();_idleProvider=idleProvider ?? new IdleTimeProvider();
         _aiOptions = aiOptions;
         _aiSettings = aiSettings;
+        _decisionAi = decisionAi;
         _interventionOptions = interventionOptions;
         _toolsOptions=toolsOptions;_preferences=preferences;_allowances=new(_clock,toolsOptions);
         _browserOptions=browserOptions; _browser=new(_clock,browserOptions);
@@ -138,11 +160,11 @@ public sealed class SessionController : IAsyncDisposable
                 Policy=new(options.Policy?.GoalSummary ?? options.Goal,rules,options.Policy?.SupportiveTimeLimitMinutes ?? _aiOptions.DefaultSupportiveMinutes) };
             _allowances.Reset();_breaking=false;AppealTarget=null;
             _sessionLifetime?.Dispose();_sessionLifetime=new();
-            _recent.Clear(); _aiUnavailable = false; _browser.Clear();
+            _recent.Clear(); _browser.Clear();
             LastStudyWindow = null;
             _escalation = new(_clock, Options.Intervention!, options.Strictness,
                 TimeSpan.FromMinutes(options.Policy?.SupportiveTimeLimitMinutes ?? _aiOptions.DefaultSupportiveMinutes));
-            _pipeline = _aiSettings.IsConfigured ? new(_clock, CreateAiClient(), _repository, _aiOptions, _aiSettings.Current.Model) : null;
+            _pipeline = _aiSettings.IsConfigured ? new(_clock, _decisionAi ?? CreateAiClient(), _repository, _aiOptions, _aiSettings.Current.Model) : null;
             _sessionId = Guid.NewGuid().ToString("N");
             await _repository.StartSessionAsync(_sessionId, _clock.UtcNow, Options);
             _idle = _idleProvider.GetIdleTime();
@@ -202,6 +224,8 @@ public sealed class SessionController : IAsyncDisposable
             }
             if (!_systemPause.Reason.HasValue) _idle = _idleProvider.GetIdleTime();
             Queue(_session.Observe(CurrentWindow, _idle));
+            if (_pipeline?.CanRetry == true)
+                Queue(_session.RetryFallbackDecision(CurrentWindow, _idle));
             if (_clock.Elapsed - _lastCheckpoint >= TimeSpan.FromSeconds(_options.CheckpointSeconds))
             {
                 Queue(_session.Checkpoint());
@@ -380,6 +404,18 @@ public sealed class SessionController : IAsyncDisposable
 
     private OpenAiStudyClient CreateAiClient() => new(_http, _aiSettings.ReadKey, _aiOptions, _aiSettings.Current.Model,_preferences.Current.Privacy,_toolsOptions);
 
+    public IReadOnlyList<RuleCandidate> GetRuleCandidates() => RuleCandidate.FromWindows(
+        new WindowCatalog(_options.MaximumTitleCharacters).ReadVisibleWindows().Select(_browser.Enrich),
+        _options.ProtectedProcesses, _aiOptions.BrowserProcesses, Environment.ProcessId);
+
+    public async Task TestAiConnectionAsync(string? enteredKey, string model, bool useSavedKey, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(model)) throw new AiUnavailableException("请输入模型名称");
+        var client = new OpenAiStudyClient(_http, () => !string.IsNullOrWhiteSpace(enteredKey) ? enteredKey.Trim() : useSavedKey ? _aiSettings.ReadKey() : null,
+            _aiOptions, model.Trim(), new AiPrivacy(), _toolsOptions);
+        await client.ClassifyAsync(new("学习税法", [], new(0,0,"notepad.exe","税法学习笔记"), [], 0), cancellationToken);
+    }
+
     private void ScheduleDecision()
     {
         var ticket = _session.PendingDecision;
@@ -400,9 +436,12 @@ public sealed class SessionController : IAsyncDisposable
             RuleDecision decision;
             try { decision = await pipeline.DecideAsync(request, RuleDecision.Unknown, cancellation.Token); }
             catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { return; }
-            catch (Exception) { decision = new(StudyVerdict.Supportive, DecisionSource.Fallback, 0, "暂时无法判定"); }
+            catch (Exception)
+            {
+                if (cancellation.IsCancellationRequested) return;
+                decision = pipeline.DegradeAfterUnexpectedFailure();
+            }
             if (cancellation.IsCancellationRequested || _disposed || IsBusy || !Snapshot.IsRunning) return;
-            _aiUnavailable = decision.Source == DecisionSource.Fallback;
             _idle = _idleProvider.GetIdleTime();
             Queue(_session.ApplyExternalDecision(ticket, decision, CurrentWindow, _idle));
             ProgressChanged();

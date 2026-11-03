@@ -10,6 +10,15 @@ internal static class NativeMethods
     internal const uint WinEventOutOfContext = 0;
 
     internal delegate void WinEventCallback(nint hook, uint eventType, nint window, int objectId, int childId, uint eventThread, uint eventTime);
+    internal delegate bool EnumWindowsCallback(nint window, nint parameter);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool EnumWindows(EnumWindowsCallback callback, nint parameter);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool IsWindowVisible(nint window);
 
     [DllImport("user32.dll", SetLastError = true)]
     internal static extern nint SetWinEventHook(uint eventMin, uint eventMax, nint module, WinEventCallback callback, uint processId, uint threadId, uint flags);

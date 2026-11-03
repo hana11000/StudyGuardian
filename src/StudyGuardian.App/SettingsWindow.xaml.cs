@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Windows;
 using System.Globalization;
+using System.Diagnostics;
 using StudyGuardian.Core;
 using StudyGuardian.Data;
 using StudyGuardian.Monitor;
@@ -16,6 +17,7 @@ public partial class SettingsWindow : Window
     private bool _initialAutostart;
     private readonly SessionController _controller;
     private readonly UserSettingsStore _preferences;
+    private CancellationTokenSource? _connectionTest;
     public SettingsWindow(AiSettingsStore store, SessionController controller,UserSettingsStore preferences,AutostartRegistration autostart)
     {
         InitializeComponent(); _store = store; _controller=controller;_preferences=preferences;
@@ -35,7 +37,35 @@ public partial class SettingsWindow : Window
         SoundBox.IsChecked=current.Intervention.SoundEnabled;SendTitleBox.IsChecked=current.Privacy.SendWindowTitle;SendUrlBox.IsChecked=current.Privacy.SendUrl;
         GlobalAllowRules.Initialize(RuleKind.Allow,"允许","SuccessBrush");GlobalSupportiveRules.Initialize(RuleKind.Supportive,"辅助","AmberBrush");GlobalBlockRules.Initialize(RuleKind.Block,"禁止","DangerBrush");
         GlobalAllowRules.SetRules(current.GlobalRules);GlobalSupportiveRules.SetRules(current.GlobalRules);GlobalBlockRules.SetRules(current.GlobalRules);
-        Closed += (_, _) => KeyBox.Clear();
+        GlobalAllowRules.CandidateProvider = GlobalSupportiveRules.CandidateProvider = GlobalBlockRules.CandidateProvider = controller.GetRuleCandidates;
+        KeyBox.PasswordChanged += (_, _) => { if (_connectionTest is null) ConnectionStatusText.Text = ""; };
+        ModelBox.TextChanged += (_, _) => { if (_connectionTest is null) ConnectionStatusText.Text = ""; };
+        Closed += (_, _) => { _connectionTest?.Cancel(); KeyBox.Clear(); };
+    }
+
+    private async void TestConnectionClick(object sender, RoutedEventArgs e)
+    {
+        if (_connectionTest is not null) return;
+        using var cancellation = new CancellationTokenSource();
+        _connectionTest = cancellation;
+        var canClear = ClearKeyButton.IsEnabled;
+        TestConnectionButton.IsEnabled = SaveButton.IsEnabled = KeyBox.IsEnabled = ModelBox.IsEnabled = ClearKeyButton.IsEnabled = false;
+        ConnectionStatusText.Text = "连接中…";
+        var watch = Stopwatch.StartNew();
+        try
+        {
+            await _controller.TestAiConnectionAsync(KeyBox.Password, ModelBox.Text, !_clearKey, cancellation.Token);
+            if (!cancellation.IsCancellationRequested) ConnectionStatusText.Text = $"连接成功 · {watch.Elapsed.TotalSeconds:0.0} 秒";
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
+        catch (AiUnavailableException ex) { if (!cancellation.IsCancellationRequested) ConnectionStatusText.Text = ex.Message; }
+        catch (Exception) { if (!cancellation.IsCancellationRequested) ConnectionStatusText.Text = "连接失败"; }
+        finally
+        {
+            _connectionTest = null;
+            TestConnectionButton.IsEnabled = SaveButton.IsEnabled = KeyBox.IsEnabled = ModelBox.IsEnabled = true;
+            ClearKeyButton.IsEnabled = canClear;
+        }
     }
     private void CopyPairingClick(object sender,RoutedEventArgs e)
     {

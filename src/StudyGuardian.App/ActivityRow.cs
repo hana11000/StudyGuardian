@@ -38,7 +38,8 @@ public sealed class ActivityRow(ActivitySegment segment)
         StudyVerdict.Neutral => "暂停", StudyVerdict.Uncertain => "待确认", _ => "待判定"
     };
     public static string DisplayState(StudySessionSnapshot state) => !state.IsRunning ? state.IsCompleted ? "已完成" : "已结束" :
-        state.PauseReason != PauseReason.None ? DisplayPauseReason(state.PauseReason) : state.Decision.Source==DecisionSource.Override ? state.Decision.Reason ?? "临时放行" : DisplayVerdict(state.Decision.Verdict);
+        state.PauseReason != PauseReason.None ? DisplayPauseReason(state.PauseReason) : state.Decision.Source==DecisionSource.Override ? state.Decision.Reason ?? "临时放行" :
+        state.Decision is {Source:DecisionSource.Fallback,Verdict:StudyVerdict.Supportive} ? "暂未判定" : DisplayVerdict(state.Decision.Verdict);
     public static Brush BrushFor(StudyVerdict verdict) => (Brush)System.Windows.Application.Current.FindResource(verdict switch
     {
         StudyVerdict.OnTask => "SuccessBrush", StudyVerdict.Distracted => "DangerBrush", StudyVerdict.Neutral => "MutedBrush", _ => "AmberBrush"

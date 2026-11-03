@@ -127,6 +127,38 @@ public sealed class DecisionPipelineTests
     }
 
     [TestMethod]
+    public async Task FailureKeepsTheActionableReasonDuringBackoff()
+    {
+        _ai.Fail = true;
+        var first = await _pipeline.DecideAsync(Request(), RuleDecision.Unknown);
+        Assert.AreEqual("服务不可用", first.Reason);
+        var second = await _pipeline.DecideAsync(Request("另一个窗口"), RuleDecision.Unknown);
+        Assert.AreEqual(first.Reason, second.Reason);
+        Assert.AreEqual(1, _ai.Calls);
+        Assert.IsFalse(second.CanEnforce);
+        Assert.AreEqual(1,_pipeline.AttemptCount);
+        Assert.AreEqual(TimeSpan.FromSeconds(30),_pipeline.RetryRemaining);
+        Assert.IsFalse(_pipeline.CanRetry);
+        _clock.Advance(30); Assert.IsTrue(_pipeline.CanRetry);
+        _ai.Fail=false;
+        await _pipeline.DecideAsync(Request(),RuleDecision.Unknown);
+        Assert.IsNull(_pipeline.LastFailureReason);
+        Assert.IsFalse(_pipeline.CanRetry);
+    }
+
+    [TestMethod]
+    public async Task FailureArrivingAfterCancellationDoesNotStartBackoff()
+    {
+        using var cancellation=new CancellationTokenSource();
+        _ai.OnCall=cancellation.Cancel; _ai.Fail=true;
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(()=>_pipeline.DecideAsync(Request(),RuleDecision.Unknown,cancellation.Token));
+        Assert.IsNull(_pipeline.LastFailureReason);
+        Assert.AreEqual(TimeSpan.Zero,_pipeline.RetryRemaining);
+        _ai.OnCall=null; _ai.Fail=false;
+        Assert.AreEqual(DecisionSource.Llm,(await _pipeline.DecideAsync(Request(),RuleDecision.Unknown)).Source);
+    }
+
+    [TestMethod]
     public async Task NormalizedTitleStillPreservesMeaningAndUrlPathCase()
     {
         _ai.Result = _ai.Result with { CacheScope = CacheScope.Title };
@@ -139,9 +171,10 @@ public sealed class DecisionPipelineTests
     private sealed class FakeAi : IStudyAi
     {
         public int Calls; public bool Fail;
+        public Action? OnCall;
         public AiDecision Result = new(StudyVerdict.OnTask, .95, "正在学习", CacheScope.ExactUrl, 30);
         public Task<AiDecision> ClassifyAsync(DecisionRequest request, CancellationToken cancellationToken)
-        { Calls++; if (Fail) throw new AiUnavailableException("服务不可用"); return Task.FromResult(Result); }
+        { Calls++; OnCall?.Invoke(); if (Fail) throw new AiUnavailableException("服务不可用"); return Task.FromResult(Result); }
         public Task<StudyPolicy> GeneratePolicyAsync(string goal, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
     private sealed class MemoryCache : IDecisionCache

@@ -10,6 +10,17 @@ namespace StudyGuardian.Core.Tests;
 [TestClass]
 public sealed class OpenAiStudyClientTests
 {
+    [TestMethod]
+    [DataRow(400,"模型或请求参数不可用")]
+    [DataRow(403,"API 权限不足")]
+    [DataRow(404,"模型不可用，请检查名称")]
+    public async Task ConfigurationErrorsHaveActionableSafeMessages(int status,string expected)
+    {
+        using var http=new HttpClient(new Handler((_,_)=>Task.FromResult(new HttpResponseMessage((HttpStatusCode)status)
+            {Content=new StringContent("private-server-details-must-not-be-shown")})));
+        var error=await Assert.ThrowsExactlyAsync<AiUnavailableException>(()=>new OpenAiStudyClient(http,()=>"synthetic-key",AiTestOptions.Create(),"test-model").ClassifyAsync(Request,default));
+        Assert.AreEqual(expected,error.Message);
+    }
     private const string Decision = """{"verdict":"supportive","confidence":0.93,"reason":"税法讲解","cache_scope":"exact_url","cache_ttl_minutes":30}""";
     private static DecisionRequest Request => new("学习税法", [], new(1234, 5678, "chrome.exe", "增值税", true, "https://example.com/tax"), [], 8);
     private static string Envelope(string payload, string status = "completed") => JsonSerializer.Serialize(new

@@ -11,6 +11,7 @@ public partial class RuleGroupControl : UserControl
 {
     private RuleKind _kind;
     private readonly List<StudyRule> _rules = [];
+    public Func<IReadOnlyList<RuleCandidate>>? CandidateProvider { get; set; }
     public RuleGroupControl() => InitializeComponent();
 
     public void Initialize(RuleKind kind, string label, string brushKey)
@@ -57,8 +58,25 @@ public partial class RuleGroupControl : UserControl
         var add = new Button { Content = "+", Width = 34, Height = 34, Padding = new Thickness(0), Margin = new Thickness(0, 0, 0, 6),
             FontSize = 19, ToolTip = "添加" + KindLabel.Text + "规则" };
         AutomationProperties.SetName(add, "添加" + KindLabel.Text + "规则");
-        add.Click += (_, _) => { EditorPanel.Visibility = Visibility.Visible; PatternBox.Focus(); };
+        add.Click += (_, _) => OpenPicker();
         TagsPanel.Children.Add(add);
+    }
+
+    private void OpenPicker()
+    {
+        if (CandidateProvider is null) { EditorPanel.Visibility = Visibility.Visible; PatternBox.Focus(); return; }
+        var picker = new RulePickerWindow(KindLabel.Text, CandidateProvider) { Owner = Window.GetWindow(this) };
+        if (picker.ShowDialog() == true)
+        {
+            foreach (var candidate in picker.Selected)
+            {
+                var rule = candidate.ToRule(_kind);
+                var comparison = rule.MatchType is RuleMatchType.Process or RuleMatchType.Domain ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+                if (!_rules.Any(r => r.MatchType == rule.MatchType && r.Pattern.Equals(rule.Pattern, comparison))) _rules.Add(rule);
+            }
+            RenderTags();
+        }
+        else if (picker.UseManualEntry) { EditorPanel.Visibility = Visibility.Visible; PatternBox.Focus(); }
     }
 
     private bool AddRule()

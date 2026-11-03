@@ -8,7 +8,11 @@ namespace StudyGuardian.Core;
 public sealed class DecisionPipeline(IClock clock, IStudyAi ai, IDecisionCache cache, AiOptions options, string model)
 {
     private TimeSpan _retryAfter;
-    private static readonly RuleDecision Fallback = new(StudyVerdict.Supportive, DecisionSource.Fallback, 0, "暂时无法判定");
+    public int AttemptCount { get; private set; }
+    public string? LastFailureReason { get; private set; }
+    public TimeSpan RetryRemaining => TimeSpan.FromTicks(Math.Max(0, (_retryAfter - clock.Elapsed).Ticks));
+    public bool CanRetry => LastFailureReason is not null && RetryRemaining == TimeSpan.Zero;
+    private RuleDecision Fallback => new(StudyVerdict.Supportive, DecisionSource.Fallback, 0, LastFailureReason ?? "暂时无法判定");
 
     public async Task<RuleDecision> DecideAsync(DecisionRequest request, RuleDecision local, CancellationToken cancellationToken = default)
     {
@@ -28,8 +32,10 @@ public sealed class DecisionPipeline(IClock clock, IStudyAi ai, IDecisionCache c
         if (clock.Elapsed < _retryAfter) return Fallback;
         try
         {
+            AttemptCount++;
             var result = await ai.ClassifyAsync(request, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
+            LastFailureReason = null;
             var verdict = result.Confidence < options.MinimumConfidence ? StudyVerdict.Uncertain : result.Verdict;
             var decision = new RuleDecision(verdict, DecisionSource.Llm, result.Confidence, result.Reason);
             var scope = keys.ContainsKey(result.CacheScope) ? result.CacheScope :
@@ -42,11 +48,20 @@ public sealed class DecisionPipeline(IClock clock, IStudyAi ai, IDecisionCache c
             }
             return decision;
         }
-        catch (AiUnavailableException)
+        catch (AiUnavailableException ex)
         {
-            _retryAfter = clock.Elapsed + TimeSpan.FromSeconds(options.FailureBackoffSeconds);
-            return Fallback;
+            cancellationToken.ThrowIfCancellationRequested();
+            return Degrade(ex.Message);
         }
+    }
+
+    public RuleDecision DegradeAfterUnexpectedFailure() => Degrade("AI 暂不可用");
+
+    private RuleDecision Degrade(string reason)
+    {
+        LastFailureReason = reason;
+        _retryAfter = clock.Elapsed + TimeSpan.FromSeconds(options.FailureBackoffSeconds);
+        return Fallback;
     }
 
     private Dictionary<CacheScope, string> BuildKeys(DecisionRequest request)

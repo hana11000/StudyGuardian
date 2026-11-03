@@ -121,7 +121,11 @@ public sealed class OpenAiStudyClient(HttpClient http, Func<string?> getKey, AiO
             message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key);
             using var response = await http.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, timeout.Token).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode) throw new AiUnavailableException(response.StatusCode switch
-            { HttpStatusCode.Unauthorized => "API Key 无效", HttpStatusCode.TooManyRequests => "API 配额或频率受限", _ => "AI 服务暂不可用" });
+            {
+                HttpStatusCode.Unauthorized => "API Key 无效", HttpStatusCode.TooManyRequests => "API 配额或频率受限",
+                HttpStatusCode.BadRequest => "模型或请求参数不可用", HttpStatusCode.Forbidden => "API 权限不足",
+                HttpStatusCode.NotFound => "模型不可用，请检查名称", _ => "AI 服务暂不可用"
+            });
             if (response.Content.Headers.ContentLength > options.MaximumResponseBytes) throw InvalidPayload();
             await using var stream = await response.Content.ReadAsStreamAsync(timeout.Token).ConfigureAwait(false);
             using var buffer = new MemoryStream();

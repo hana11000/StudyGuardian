@@ -140,6 +140,19 @@ public sealed class StudySession
         _dwellDecision?.Verdict == StudyVerdict.Unknown && _dwellWindow is { } window
             ? new(_visitRevision, window, (_clock.Elapsed - _dwellStarted).TotalSeconds) : null;
 
+    public TimeSpan DecisionDwellRemaining => TimeSpan.FromTicks(Math.Max(0, (_timing.DecisionDwell - (_clock.Elapsed - _dwellStarted)).Ticks));
+
+    public IReadOnlyList<ActivitySegment> RetryFallbackDecision(WindowSnapshot window, TimeSpan idle)
+    {
+        List<ActivitySegment> output = [.. Observe(window, idle)];
+        if (!Snapshot.IsRunning || Snapshot.PauseReason != PauseReason.None ||
+            _dwellDecision is not { Source: DecisionSource.Fallback, Verdict: StudyVerdict.Supportive }) return output;
+        _visitRevision++;
+        _dwellDecision = RuleDecision.Unknown;
+        Collect(_recorder.Observe(window, idle, _dwellDecision), output);
+        return output;
+    }
+
     public IReadOnlyList<ActivitySegment> ApplyExternalDecision(DecisionTicket ticket, RuleDecision decision, WindowSnapshot window, TimeSpan idle)
     {
         List<ActivitySegment> output = [.. Observe(window, idle)];

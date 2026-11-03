@@ -49,4 +49,35 @@ public sealed class ExternalDecisionTests
         session.ApplyExternalDecision(ticket, new(StudyVerdict.Distracted, DecisionSource.Llm), Window, TimeSpan.Zero);
         Assert.AreEqual(StudyVerdict.Unknown, session.Snapshot.Decision.Verdict);
     }
+
+    [TestMethod]
+    public void RetryFallbackKeepsVisitDwellAndRejectsThePreviousTicket()
+    {
+        var session = Create(); _clock.Advance(5); session.Observe(Window, TimeSpan.Zero);
+        var old = session.PendingDecision!;
+        session.ApplyExternalDecision(old, new(StudyVerdict.Supportive, DecisionSource.Fallback), Window, TimeSpan.Zero);
+        _clock.Advance(30);
+        var closed = session.RetryFallbackDecision(Window, TimeSpan.Zero);
+        Assert.AreEqual(30, closed.Sum(s => s.Duration.TotalSeconds));
+        Assert.IsNotNull(session.PendingDecision);
+        Assert.AreEqual(35, session.PendingDecision.DwellSeconds);
+        session.ApplyExternalDecision(old, new(StudyVerdict.Distracted, DecisionSource.Llm), Window, TimeSpan.Zero);
+        Assert.AreEqual(StudyVerdict.Unknown, session.Snapshot.Decision.Verdict);
+        session.ApplyExternalDecision(session.PendingDecision!, new(StudyVerdict.OnTask, DecisionSource.Llm), Window, TimeSpan.Zero);
+        Assert.AreEqual(StudyVerdict.OnTask, session.Snapshot.Decision.Verdict);
+    }
+
+    [TestMethod]
+    public void RetryDoesNotBypassNewWindowDwellOrPause()
+    {
+        var session = Create(); _clock.Advance(5); session.Observe(Window, TimeSpan.Zero);
+        session.ApplyExternalDecision(session.PendingDecision!, new(StudyVerdict.Supportive, DecisionSource.Fallback), Window, TimeSpan.Zero);
+        session.RetryFallbackDecision(Window with { Title = "新窗口" }, TimeSpan.Zero);
+        Assert.IsNull(session.PendingDecision);
+        Assert.AreEqual(TimeSpan.FromSeconds(5), session.DecisionDwellRemaining);
+        session.SetManualPause(true, Window, TimeSpan.Zero);
+        session.RetryFallbackDecision(Window, TimeSpan.Zero);
+        Assert.IsNull(session.PendingDecision);
+        Assert.AreEqual(StudyVerdict.Neutral, session.Snapshot.Decision.Verdict);
+    }
 }

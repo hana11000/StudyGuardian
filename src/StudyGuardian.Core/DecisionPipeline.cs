@@ -56,14 +56,14 @@ public sealed class DecisionPipeline(IClock clock, IStudyAi ai, IDecisionCache c
         var domain = uri?.IdnHost.ToLowerInvariant().TrimEnd('.') ?? "";
         var policy = JsonSerializer.Serialize(new
         {
-            version = "m3-v1", model, options.MinimumConfidence, goal = request.Goal.Trim(),
+            version = "m5-v2", model, options.MinimumConfidence, goal = request.Goal.Trim(),
             rules = request.Rules.Select(r => new { r.Kind, r.MatchType, r.Pattern }).OrderBy(r => r.Kind).ThenBy(r => r.MatchType).ThenBy(r => r.Pattern, StringComparer.Ordinal)
         });
         var fingerprint = Hash(policy);
         string Key(CacheScope scope, string value) => Hash(JsonSerializer.Serialize(new { fingerprint, scope, process, value }));
         var title = string.Join(' ', request.Current.Title.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
-        Dictionary<CacheScope, string> keys = new() { [CacheScope.Title] = Key(CacheScope.Title, domain + "\n" + title) };
-        if (uri is not null) keys[CacheScope.ExactUrl] = Key(CacheScope.ExactUrl, uri.GetComponents(UriComponents.HttpRequestUrl, UriFormat.UriEscaped));
+        Dictionary<CacheScope, string> keys = new() { [CacheScope.Title] = Key(CacheScope.Title, (uri?.AbsoluteUri ?? domain) + "\n" + title) };
+        if (uri is not null) keys[CacheScope.ExactUrl] = Key(CacheScope.ExactUrl, uri.AbsoluteUri);
         var mixed = options.MixedContentDomains.Any(d => domain == d || domain.EndsWith("." + d, StringComparison.OrdinalIgnoreCase));
         if (uri is not null && !mixed) keys[CacheScope.Domain] = Key(CacheScope.Domain, domain);
         if (uri is null && !options.BrowserProcesses.Any(p => NormalizeProcess(p) == process))

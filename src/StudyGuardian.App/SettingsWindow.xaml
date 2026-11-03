@@ -16,6 +16,16 @@
     <Button x:Name="ClearKeyButton" Content="清除密钥" Click="ClearKeyClick" HorizontalAlignment="Right" Background="Transparent" Padding="8" Margin="0,4,0,14" FontWeight="Normal" Foreground="{StaticResource MutedBrush}" />
     <TextBlock Text="模型" Margin="0,0,0,8" />
     <TextBox x:Name="ModelBox" AutomationProperties.Name="模型" />
+    <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,24" />
+    <DockPanel Margin="0,0,0,12">
+      <TextBlock x:Name="BrowserPortText" DockPanel.Dock="Right" Style="{StaticResource MutedText}" />
+      <TextBlock Text="浏览器扩展" FontSize="17" FontWeight="SemiBold" />
+    </DockPanel>
+    <DockPanel>
+      <Button Content="重置" DockPanel.Dock="Right" Click="ResetPairingClick" Padding="14,8" Margin="8,0,0,0" />
+      <Button Content="复制配对码" Click="CopyPairingClick" Padding="14,8" />
+    </DockPanel>
+    <TextBlock x:Name="PairingStatusText" Style="{StaticResource MutedText}" Margin="0,8,0,0" />
     <TextBlock x:Name="ErrorText" Visibility="Collapsed" Foreground="{StaticResource DangerBrush}" TextWrapping="Wrap" Margin="0,12,0,0" />
     <Button Content="保存" Click="SaveClick" Style="{StaticResource PrimaryButton}" Margin="0,24,0,0" />
   </StackPanel>

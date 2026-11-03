@@ -40,6 +40,17 @@ public sealed class DecisionPipelineTests
     }
 
     [TestMethod]
+    [DataRow(CacheScope.ExactUrl)]
+    [DataRow(CacheScope.Title)]
+    public async Task FragmentRoutesDoNotShareBrowserCaches(CacheScope scope)
+    {
+        _ai.Result=_ai.Result with {CacheScope=scope};
+        await _pipeline.DecideAsync(Request("课程", "https://www.bilibili.com/app#/game"),RuleDecision.Unknown);
+        await _pipeline.DecideAsync(Request("课程", "https://www.bilibili.com/app#/study"),RuleDecision.Unknown);
+        Assert.AreEqual(2,_ai.Calls);
+    }
+
+    [TestMethod]
     public async Task BrowserProcessScopeCannotAllowEveryPage()
     {
         _ai.Result = _ai.Result with { CacheScope = CacheScope.Process };

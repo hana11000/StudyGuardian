@@ -76,7 +76,7 @@ internal sealed class InterventionPresenter : IDisposable
         surface.Update(_goal, _state!, ReturnProcess);
         surface.Show(); surface.Place(monitor, level);
     }
-    private void ReturnToStudy()
+    public void ReturnToStudy()
     {
         HideAll();
         if (_study is null || !_actions.TryActivate(_study, _interventionTarget)) _showMain();

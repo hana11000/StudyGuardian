@@ -23,15 +23,16 @@ public partial class MainWindow : Window
     private bool _generating;
     private readonly InterventionPresenter _interventions;
 
-    public MainWindow(MonitoringOptions options, SessionUiOptions sessionOptions, AiOptions aiOptions, InterventionOptions interventionOptions, string databasePath)
+    public MainWindow(MonitoringOptions options, SessionUiOptions sessionOptions, AiOptions aiOptions, InterventionOptions interventionOptions, BrowserOptions browserOptions, string databasePath)
     {
         InitializeComponent();
         _sessionOptions = sessionOptions;
         _recentLimit = options.RecentEventLimit;
         _aiSettings = new(Path.GetDirectoryName(databasePath)!, aiOptions);
-        _controller = new(options, sessionOptions, aiOptions, _aiSettings, interventionOptions, databasePath, Dispatcher);
+        _controller = new(options, sessionOptions, aiOptions, _aiSettings, interventionOptions, browserOptions, databasePath, Dispatcher);
         _interventions = new(interventionOptions, new(options.ProtectedProcesses, Environment.ProcessId, options.MaximumTitleCharacters), Dispatcher, ShowMain);
         _interventions.Failed += (_, message) => { NoticeText.Text = message; NoticeBorder.Visibility = Visibility.Visible; };
+        _controller.ReturnRequested += (_, _) => _interventions.ReturnToStudy();
         SetupControl.Initialize(sessionOptions, aiOptions);
         SetupControl.GeneratePolicyRequested += GeneratePolicyRequested;
         _controller.StateChanged += (_, _) => UpdateState();
@@ -48,7 +49,7 @@ public partial class MainWindow : Window
         if (_aiSettings.LoadError is { } error) { NoticeText.Text = error; NoticeBorder.Visibility = Visibility.Visible; }
     }
     private void SettingsClick(object sender, RoutedEventArgs e)
-    { new SettingsWindow(_aiSettings) { Owner = this }.ShowDialog(); UpdateState(); }
+    { new SettingsWindow(_aiSettings, _controller) { Owner = this }.ShowDialog(); UpdateState(); }
     private async void GeneratePolicyRequested(object? sender, EventArgs e)
     {
         if (_closing || _generating) return;

@@ -23,7 +23,7 @@ public partial class App : Application
                 Shutdown();
                 return;
             }
-            MainWindow = new MainWindow(configuration.Options, configuration.Session, configuration.Ai, configuration.Intervention, configuration.DatabasePath);
+            MainWindow = new MainWindow(configuration.Options, configuration.Session, configuration.Ai, configuration.Intervention, configuration.Browser, configuration.DatabasePath);
             MainWindow.Show();
         }
         catch (Exception ex)

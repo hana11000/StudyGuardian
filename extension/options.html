@@ -1,0 +1,4 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Study Guardian · 配对</title><link rel="stylesheet" href="ui.css"></head>
+<body><main><h1>Study Guardian</h1><form class="card" id="pairing"><h2>浏览器配对</h2><label for="port">本机端口</label><input id="port" type="number" min="1024" max="65535" required>
+<label for="token">配对码</label><input id="token" type="password" autocomplete="off" spellcheck="false" required>
+<div class="actions"><button type="submit" id="connect">连接</button><button class="secondary" type="button" id="disconnect">断开</button></div><p id="status" class="status" role="status"></p></form></main><script type="module" src="options.mjs"></script></body></html>

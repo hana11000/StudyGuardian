@@ -1,5 +1,7 @@
 using System.Windows.Threading;
 using System.Net.Http;
+using System.IO;
+using System.Text.Json;
 using StudyGuardian.AI;
 using Microsoft.Win32;
 using StudyGuardian.Core;
@@ -36,6 +38,19 @@ public sealed class SessionController : IAsyncDisposable
     private bool _aiUnavailable;
     private readonly InterventionOptions _interventionOptions;
     private EscalationEngine? _escalation;
+    private readonly BrowserOptions _browserOptions;
+    private readonly BrowserActivityTracker _browser;
+    private LoopbackBrowserServer? _browserServer;
+    private bool _browserReady;
+    private TimeSpan? _browserContact;
+    public BrowserPairingStore BrowserPairing { get; }
+    public int BrowserPort => _browserOptions.Port;
+    public string BrowserConnectionStatus => !_browserReady ? "扩展连接不可用" : _browserContact is { } contact && _clock.Elapsed-contact <= TimeSpan.FromSeconds(_browserOptions.HeartbeatSeconds+_browserOptions.FreshnessSeconds) ? "已连接" : "等待扩展连接";
+    public event EventHandler? ReturnRequested;
+    private WindowSnapshot CurrentWindow => _browser.Enrich(_monitor.Current);
+    private bool BrowserMonitoring => Snapshot.IsRunning && !Snapshot.IsManuallyPaused && !IsBusy && !IsFaulted && !_disposed &&
+        !_systemPause.Reason.HasValue && Snapshot.PauseReason != PauseReason.Away;
+    private static readonly JsonSerializerOptions BrowserJson = new(JsonSerializerDefaults.Web);
 
     public bool IsReady { get; private set; }
     public bool IsBusy { get; private set; }
@@ -53,12 +68,14 @@ public sealed class SessionController : IAsyncDisposable
     public event EventHandler? StateChanged;
     public event EventHandler<ActivitySegment>? SegmentSaved;
 
-    public SessionController(MonitoringOptions options, SessionUiOptions sessionOptions, AiOptions aiOptions, AiSettingsStore aiSettings, InterventionOptions interventionOptions, string databasePath, Dispatcher dispatcher)
+    public SessionController(MonitoringOptions options, SessionUiOptions sessionOptions, AiOptions aiOptions, AiSettingsStore aiSettings, InterventionOptions interventionOptions, BrowserOptions browserOptions, string databasePath, Dispatcher dispatcher)
     {
         _options = options;
         _aiOptions = aiOptions;
         _aiSettings = aiSettings;
         _interventionOptions = interventionOptions;
+        _browserOptions=browserOptions; _browser=new(_clock,browserOptions);
+        BrowserPairing=new(Path.GetDirectoryName(databasePath)!,browserOptions);
         _repository = new(databasePath);
         _monitor = new(options.MaximumTitleCharacters);
         _dispatcher = dispatcher;
@@ -78,6 +95,14 @@ public sealed class SessionController : IAsyncDisposable
                 SegmentSaved?.Invoke(this, segment);
             SystemEvents.SessionSwitch += SessionSwitched;
             SystemEvents.PowerModeChanged += PowerChanged;
+            try
+            {
+                _=BrowserPairing.ReadOrCreate();
+                _browserServer=new(_browserOptions,BrowserPairing.ReadOrCreate,
+                    (request,ct)=>_dispatcher.InvokeAsync(()=>HandleBrowserRequest(request),DispatcherPriority.Normal,ct).Task);
+                _browserServer.Start(); _browserReady=true;
+            }
+            catch(Exception) { _browserReady=false; }
             IsReady = true;
             Notify();
         }
@@ -92,7 +117,7 @@ public sealed class SessionController : IAsyncDisposable
         try
         {
             Options = options with { Rules = options.Rules.ToArray() };
-            _recent.Clear(); _aiUnavailable = false;
+            _recent.Clear(); _aiUnavailable = false; _browser.Clear();
             LastStudyWindow = null;
             _escalation = new(_clock, _interventionOptions, options.Strictness,
                 TimeSpan.FromMinutes(options.Policy?.SupportiveTimeLimitMinutes ?? _aiOptions.DefaultSupportiveMinutes));
@@ -101,8 +126,8 @@ public sealed class SessionController : IAsyncDisposable
             await _repository.StartSessionAsync(_sessionId, _clock.UtcNow, Options);
             _idle = _idleProvider.GetIdleTime();
             _monitor.Start();
-            _session.Start(_sessionId, Options, _monitor.Current, _idle);
-            Queue(_session.SetSystemPause(_systemPause.Reason, _monitor.Current, _idle));
+            _session.Start(_sessionId, Options, CurrentWindow, _idle);
+            Queue(_session.SetSystemPause(_systemPause.Reason, CurrentWindow, _idle));
             _lastCheckpoint = _clock.Elapsed;
             _stopTask = null;
             _timer.Start();
@@ -121,7 +146,8 @@ public sealed class SessionController : IAsyncDisposable
                 _idle = _idleProvider.GetIdleTime();
                 _monitor.Refresh();
             }
-            Queue(_session.SetManualPause(paused, _monitor.Current, _idle));
+            _browser.Clear();
+            Queue(_session.SetManualPause(paused, CurrentWindow, _idle));
             ProgressChanged();
         }
         catch (Exception ex) { Fail("暂停状态切换失败", ex); }
@@ -134,7 +160,7 @@ public sealed class SessionController : IAsyncDisposable
         try
         {
             if (!_systemPause.Reason.HasValue) _idle = _idleProvider.GetIdleTime();
-            Queue(_session.Observe(window, _idle));
+            Queue(_session.Observe(_browser.Enrich(window), _idle));
             ProgressChanged();
         }
         catch (Exception ex) { Fail("窗口采集已停止", ex); }
@@ -146,7 +172,7 @@ public sealed class SessionController : IAsyncDisposable
         try
         {
             if (!_systemPause.Reason.HasValue) _idle = _idleProvider.GetIdleTime();
-            Queue(_session.Observe(_monitor.Current, _idle));
+            Queue(_session.Observe(CurrentWindow, _idle));
             if (_clock.Elapsed - _lastCheckpoint >= TimeSpan.FromSeconds(_options.CheckpointSeconds))
             {
                 Queue(_session.Checkpoint());
@@ -167,6 +193,8 @@ public sealed class SessionController : IAsyncDisposable
         }
         if (Snapshot is { IsRunning: true, PauseReason: PauseReason.None, Decision: { Verdict: StudyVerdict.OnTask, Source: not DecisionSource.Fallback }, Window: { } study })
             LastStudyWindow = study;
+        if (Snapshot.Window is { } browserWindow && _escalation?.Snapshot is { } escalation && BrowserMonitoring)
+            _browser.ObserveEscalation(browserWindow, escalation, Options?.Policy?.GoalSummary ?? Options?.Goal ?? "");
         ScheduleDecision();
         Notify();
         if (!Snapshot.IsRunning && HasSession && !IsBusy && !IsFaulted) _ = StopAsync();
@@ -192,11 +220,12 @@ public sealed class SessionController : IAsyncDisposable
                 if (!_systemPause.Reason.HasValue)
                 {
                     _idle = _idleProvider.GetIdleTime();
-                    Queue(_session.Observe(_monitor.Current, _idle));
+                    Queue(_session.Observe(CurrentWindow, _idle));
                 }
                 Queue(_session.Stop());
             }
             _monitor.Stop();
+            _browser.Clear();
             var logicalEnd = _session.EndedAt;
             await _aiWork;
             await _writes;
@@ -224,6 +253,30 @@ public sealed class SessionController : IAsyncDisposable
             }
             if (!IsFaulted) _writes = SaveAfterAsync(_writes, enriched);
         }
+    }
+
+    public void ResetBrowserPairing() { BrowserPairing.Reset(); _browser.Clear(); }
+
+    private object HandleBrowserRequest(BrowserRequest request)
+    {
+        _browserContact=_clock.Elapsed;
+        if(request.Path=="/status") return new BrowserStatus(BrowserMonitoring);
+        if(request.Path=="/return") { if(!_disposed) ReturnRequested?.Invoke(this,EventArgs.Empty); return new BrowserCommand(); }
+        if(!BrowserMonitoring) return new BrowserCommand();
+        if(request.Path=="/command")
+        {
+            return request.Body.TryGetProperty("clientId",out var id) && id.ValueKind==JsonValueKind.String
+                ? _browser.GetCommand(id.GetString() ?? "") : new BrowserCommand();
+        }
+        var report=request.Body.Deserialize<BrowserActivity>(BrowserJson);
+        if(report==null) return new BrowserCommand();
+        var foreground=_monitor.Refresh();
+        _idle=_idleProvider.GetIdleTime();
+        if(!_browser.Accept(report,foreground)) return new BrowserCommand();
+        Queue(_session.Observe(CurrentWindow,_idle));
+        ProgressChanged();
+        var command=_browser.GetCommand(report.ClientId);
+        return command.Action=="block" ? command : new BrowserCommand(_escalation?.Snapshot is {IsDistracting:true,Level:>=InterventionLevel.Reminder} ? "warn" : "none");
     }
 
     public Task<StudyPolicy> GeneratePolicyAsync(string goal, CancellationToken cancellationToken)
@@ -258,7 +311,7 @@ public sealed class SessionController : IAsyncDisposable
             if (cancellation.IsCancellationRequested || _disposed || IsBusy || !Snapshot.IsRunning) return;
             _aiUnavailable = decision.Source == DecisionSource.Fallback;
             _idle = _idleProvider.GetIdleTime();
-            Queue(_session.ApplyExternalDecision(ticket, decision, _monitor.Current, _idle));
+            Queue(_session.ApplyExternalDecision(ticket, decision, CurrentWindow, _idle));
             ProgressChanged();
         }
         finally
@@ -325,12 +378,13 @@ public sealed class SessionController : IAsyncDisposable
         if (!Snapshot.IsRunning || IsFaulted) return;
         try
         {
+            if(_systemPause.Reason.HasValue) _browser.Clear();
             if (!_systemPause.Reason.HasValue)
             {
                 _idle = _idleProvider.GetIdleTime();
                 _monitor.Refresh();
             }
-            Queue(_session.SetSystemPause(_systemPause.Reason, _monitor.Current, _idle));
+            Queue(_session.SetSystemPause(_systemPause.Reason, CurrentWindow, _idle));
             ProgressChanged();
         }
         catch (Exception ex) { Fail("系统状态切换失败", ex); }
@@ -361,5 +415,6 @@ public sealed class SessionController : IAsyncDisposable
         _monitor.Changed -= ForegroundChanged;
         _monitor.Dispose();
         _http.Dispose();
+        if(_browserServer!=null) await _browserServer.DisposeAsync();
     }
 }

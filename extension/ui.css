@@ -1,0 +1,8 @@
+:root{color-scheme:dark;font:15px/1.6 "Microsoft YaHei UI",sans-serif;background:#0f1115;color:#e8eaed}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px}
+main{width:min(100%,480px)}h1{font-size:26px;font-weight:600;margin:0 0 24px}h2{font-size:18px;margin:0 0 16px}
+.card{background:#181b21;border:1px solid #292d36;border-radius:12px;padding:24px}
+label{display:block;margin:0 0 8px;color:#9aa0a6}input{display:block;width:100%;background:#0f1115;border:1px solid #343944;border-radius:8px;color:inherit;padding:12px;font:inherit;margin:0 0 16px;outline:none}
+input:focus{border-color:#5b8def}button{border:0;border-radius:8px;padding:12px 18px;color:#e8eaed;background:#5b8def;font:inherit;font-weight:600;cursor:pointer}button:disabled{opacity:.5;cursor:default}
+.actions{display:flex;gap:16px;margin-top:24px}.actions>button{flex:1}.secondary{background:#292d36}.muted{color:#9aa0a6}.status{min-height:24px;margin:16px 0 0;color:#9aa0a6}.error{color:#e5484d}.success{color:#34c77b}
+.dot{display:inline-block;width:12px;height:12px;background:#e5484d;border-radius:50%;margin-right:10px}#goal{overflow-wrap:anywhere;font-size:22px;margin:8px 0 24px}

@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Study Guardian",
+  "version": "0.5.0",
+  "description": "与本机 Study Guardian 配对，识别当前学习标签页。",
+  "minimum_chrome_version": "120",
+  "permissions": ["tabs", "storage", "alarms"],
+  "host_permissions": ["http://127.0.0.1/*"],
+  "background": {"service_worker": "worker.mjs", "type": "module"},
+  "action": {"default_title": "Study Guardian · 配对"},
+  "options_page": "options.html",
+  "incognito": "not_allowed",
+  "content_security_policy": {"extension_pages": "script-src 'self'; object-src 'none'"}
+}

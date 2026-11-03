@@ -49,7 +49,7 @@
   "ai": {
     "model": "gpt-6-luna",
     "reasoningEffort": "none",
-    "requestTimeoutSeconds": 3,
+    "requestTimeoutSeconds": 15,
     "cacheMaxTtlMinutes": 30,
     "failureBackoffSeconds": 30,
     "minimumConfidence": 0.75,

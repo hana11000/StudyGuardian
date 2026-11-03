@@ -1,10 +1,10 @@
 # Study Guardian
 
-Windows 学习专注工具。当前交付阶段：**M8：静谧磨砂 UI**。
+Windows 学习专注工具。当前交付阶段：**M8.1：API 超时修复**。
 
 ## 使用
 
-双击根目录 `Start.cmd`，或 `dist/StudyGuardian-M8/StudyGuardian.App.exe`。
+双击根目录 `Start.cmd`，或 `dist/StudyGuardian-M8.1/StudyGuardian.App.exe`。
 
 1. 填写学习目标，选择 25/50/90 分钟或自定义时长、严格度。
 2. 规则可留空，配置 API 后仅填写目标即可开始。需要固定规则时，在“允许 / 辅助 / 禁止”点 `+` 勾选已打开应用；也可搜索、多选或手动输入。点标签的 `×` 删除。
@@ -12,7 +12,7 @@ Windows 学习专注工具。当前交付阶段：**M8：静谧磨砂 UI**。
 4. 鼠标移到悬浮窗上或进入键盘焦点时展开暂停、休息、结束按钮，`↗` 返回主窗口。
 5. 点 **活动记录** 查看最近记录，点 **记录文件** 打开数据库所在目录。
 
-发布目录附带运行时，无需另装 .NET。移动时请保留整个发布文件夹。也可解压 dist/StudyGuardian-M8.zip 后运行 Install.cmd，安装到当前用户目录并添加开始菜单入口。安装升级保留 data；便携版升级可在两个程序均关闭时，将旧 data 复制到新目录。旧目录不会自动搬迁。
+发布目录附带运行时，无需另装 .NET。移动时请保留整个发布文件夹。也可解压 dist/StudyGuardian-M8.1.zip 后运行 Install.cmd，安装到当前用户目录并添加开始菜单入口。安装升级保留 data；便携版升级可在两个程序均关闭时，将旧 data 复制到新目录。旧目录不会自动搬迁。
 
 严格退出、意外退出后重启、开机启动均在设置中独立开启，默认关闭。严格退出要求输入指定文字再等待 60 秒；取消可回到程序。守护只处理意外退出，正常关闭和关机不会重启，重启后不自动开始采集。连续快速失败最多重启 3 次。自启仅设置当前用户、当前安装目录对应的启动项；移动目录前先关闭自启。
 
@@ -51,7 +51,7 @@ Windows 11 支持时使用系统 Mica/Acrylic，较旧系统使用弥散光与�
 
 点右上角齿轮，输入自己的 API Key 和模型，可先点“测试连接”查看结果和耗时，再保存。连接测试使用合成数据，不保存编辑内容。默认模型在 `config/defaults.json`，可在设置中修改。密钥用当前 Windows 用户的 DPAPI 加密到 `data/api-key.dpapi`，界面不回显已有密钥；清除后重新保存即可移除。
 
-AI 通过 Responses API 的 strict JSON Schema 返回结果。每次调用最多等待 3 秒；超时、断网、拒答或无效返回降级为 supportive/fallback，不触发后续拦截。失败会显示原因和倒计时，并在默认 30 秒后对仍停留的窗口重试。uncertain 和低信心结论显示“AI 信息不足”，也不触发拦截。缓存按目标、规则和模型隔离，混合网站只按具体 URL 或标题复用；切换窗口后旧回复会丢弃。
+AI 通过 Responses API 的 strict JSON Schema 返回结果。每次调用最多等待 15 秒；超时、断网、拒答或无效返回降级为 supportive/fallback，不触发后续拦截。失败会显示原因和倒计时，并在默认 30 秒后对仍停留的窗口重试。uncertain 和低信心结论显示“AI 信息不足”，也不触发拦截。缓存按目标、规则和模型隔离，混合网站只按具体 URL 或标题复用；切换窗口后旧回复会丢弃。
 
 专注率 = 专注时长 /（专注 + 辅助 + 分心时长），不包括未知、系统窗口和暂停；没有已判定时间时显示“—”。手动暂停、锁屏、睡眠、系统窗口及空闲超过 5 分钟后不扣除会话时间。
 
@@ -100,8 +100,8 @@ SDK 和缓存位于项目目录，不修改系统 PATH。受限环境可能需�
 
 ## 验证和后续开发
 
-[M8 验证与手动步骤](docs/m8-production-verification.md) · [M8 改动文件](docs/m8-production-files.md) · [M7.1 手动验收](docs/m7.1-manual-test.md) · [M7.1 改动文件](docs/m7.1-files.md) · [M7 手动验收](docs/m7-manual-test.md) · [M7 改动文件](docs/m7-files.md) · [M6 手动验收](docs/m6-manual-test.md) · [M6 改动文件](docs/m6-files.md) · [M5 手动验收](docs/m5-manual-test.md) · [M5 改动文件](docs/m5-files.md) · [M4 手动验收](docs/m4-manual-test.md) · [M3 手动验收](docs/m3-manual-test.md) · [设计](docs/design.md) · [开发约束](AGENTS.md)
+[M8.1 API 修复与验证](docs/m8.1-api-timeout.md) · [M8 验证与手动步骤](docs/m8-production-verification.md) · [M8 改动文件](docs/m8-production-files.md) · [M7.1 手动验收](docs/m7.1-manual-test.md) · [M7.1 改动文件](docs/m7.1-files.md) · [M7 手动验收](docs/m7-manual-test.md) · [M7 改动文件](docs/m7-files.md) · [M6 手动验收](docs/m6-manual-test.md) · [M6 改动文件](docs/m6-files.md) · [M5 手动验收](docs/m5-manual-test.md) · [M5 改动文件](docs/m5-files.md) · [M4 手动验收](docs/m4-manual-test.md) · [M3 手动验收](docs/m3-manual-test.md) · [设计](docs/design.md) · [开发约束](AGENTS.md)
 
-M1–M8 已实现。M8 的 213 项 .NET 测试通过；M7.1 的 11 项扩展测试保持不变。独立进程验收中，意外退出后约 0.66 秒重启，正常退出不重启，快速崩溃到达上限后停止；安装测试覆盖升级保留数据、目录边界、校验和及规范化路径。真实 API 已用合成窗口验证学习/分心两种结果，初次请求存在超时；浏览器加载/跳转、Windows 登录/关机、多显示器/多 DPI 和遮罩按钮仍需人工验收。发布包未做代码签名。
+M1–M8.1 已实现。M8.1 的 213 项 .NET 测试通过；M7.1 的 11 项扩展测试保持不变。独立进程验收中，意外退出后约 0.66 秒重启，正常退出不重启，快速崩溃到达上限后停止；安装测试覆盖升级保留数据、目录边界、校验和及规范化路径。真实 API 已用合成窗口验证学习/分心两种结果，M8.1 已将首次连接等待上限从 3 秒调整为 15 秒；浏览器加载/跳转、Windows 登录/关机、多显示器/多 DPI 和遮罩按钮仍需人工验收。发布包未做代码签名。
 
 BoardUI MCP 已在开发机安装并验证。它的 React/Tailwind 组件不直接用于 WPF；本项目参考布局层级，使用原生 WPF 实现，未添加 UI 框架依赖。

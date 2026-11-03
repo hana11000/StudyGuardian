@@ -1,4 +1,4 @@
-param([string]$OutputDirectory='dist\StudyGuardian-M8',[switch]$SkipArchive)
+param([string]$OutputDirectory='dist\StudyGuardian-M8.1',[switch]$SkipArchive)
 $ErrorActionPreference='Stop'
 $projectRoot=Split-Path -Parent $PSScriptRoot
 $output=[IO.Path]::GetFullPath((Join-Path $projectRoot $OutputDirectory))

@@ -50,7 +50,7 @@ foreach($file in $validated) {
     New-Item -ItemType Directory -Path (Split-Path -Parent $file.to) -Force | Out-Null
     Copy-Item -LiteralPath $file.from -Destination $file.to -Force
 }
-@{product='StudyGuardian';version='M8'} | ConvertTo-Json | Set-Content -LiteralPath $marker -Encoding UTF8
+@{product='StudyGuardian';version='M8.1'} | ConvertTo-Json | Set-Content -LiteralPath $marker -Encoding UTF8
 if(!$NoShortcuts) {
     $programs=[Environment]::GetFolderPath('Programs');$link=Join-Path $programs 'Study Guardian.lnk'
     $shell=New-Object -ComObject WScript.Shell;$shortcut=$shell.CreateShortcut($link)

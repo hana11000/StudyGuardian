@@ -61,6 +61,17 @@ public sealed class SqliteActivityRepositoryTests
     }
 
     [TestMethod]
+    public async Task InterventionLevelPersistsWithoutRegressingAtCheckpoint()
+    {
+        await _repository.SaveSegmentAsync(Segment("level", 10) with { Decision = new(StudyVerdict.Distracted, DecisionSource.Rule), Level = 1 });
+        await _repository.SaveSegmentAsync(Segment("level", 90) with { Decision = new(StudyVerdict.Distracted, DecisionSource.Rule), Level = 3 });
+        await _repository.SaveSegmentAsync(Segment("level", 91) with { Decision = new(StudyVerdict.Distracted, DecisionSource.Rule), Level = 0 });
+        var rows = await _repository.ReadRecentAsync(10);
+        Assert.AreEqual(3, rows.Single().Level);
+        Assert.AreEqual(91, rows.Single().Duration.TotalSeconds);
+    }
+
+    [TestMethod]
     public async Task UnicodeAndSqlLikeTitlesSurviveRealDatabaseRoundTrip()
     {
         var expected = Segment("first", 12.125);

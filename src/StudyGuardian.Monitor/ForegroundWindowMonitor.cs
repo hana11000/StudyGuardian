@@ -68,7 +68,7 @@ public sealed class ForegroundWindowMonitor(int maximumTitleCharacters) : IForeg
         Changed?.Invoke(this, next);
     }
 
-    private WindowSnapshot ReadWindow(nint window)
+    internal WindowSnapshot ReadWindow(nint window)
     {
         if (window == 0) return WindowSnapshot.Unavailable;
         try

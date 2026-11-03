@@ -42,4 +42,12 @@ public sealed class ActivityRow(ActivitySegment segment)
     {
         StudyVerdict.OnTask => "SuccessBrush", StudyVerdict.Distracted => "DangerBrush", StudyVerdict.Neutral => "MutedBrush", _ => "AmberBrush"
     });
+    public static Brush BrushForState(StudySessionSnapshot state, EscalationSnapshot? escalation)
+    {
+        if (!state.IsRunning || state.PauseReason != PauseReason.None) return BrushFor(StudyVerdict.Neutral);
+        if (state.Decision.CanEnforce && escalation is { IsDistracting: true } && state.Window == escalation.Window)
+            return BrushFor(escalation.Level >= InterventionLevel.Warning ? StudyVerdict.Distracted : StudyVerdict.Supportive);
+        if (state.Decision.Verdict == StudyVerdict.Distracted) return BrushFor(StudyVerdict.Supportive);
+        return BrushFor(state.Decision.Verdict);
+    }
 }

@@ -10,7 +10,8 @@ public sealed record ActivitySegment(
     DateTimeOffset EndedAt,
     TimeSpan Duration,
     PauseReason PauseReason,
-    RuleDecision? Decision = null)
+    RuleDecision? Decision = null,
+    int Level = 0)
 {
     public double ActiveSeconds => PauseReason == PauseReason.None ? Duration.TotalSeconds : 0;
 }

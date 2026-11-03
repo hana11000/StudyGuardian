@@ -15,6 +15,20 @@
       "CredentialUIBroker.exe", "consent.exe", "SecurityHealthSystray.exe"
     ]
   },
+  "intervention": {
+    "reminderSeconds": 10,
+    "warningSeconds": 40,
+    "blockSeconds": 90,
+    "gentleMultiplier": 1.5,
+    "strictMultiplier": 0.5,
+    "focusResetSeconds": 20,
+    "rollingWindowSeconds": 1800,
+    "accelerationAfterSeconds": 300,
+    "blockLockSeconds": 60,
+    "frameThicknessPixels": 4,
+    "overlayOpacity": 0.9,
+    "soundEnabled": true
+  },
   "ai": {
     "model": "gpt-6-luna",
     "reasoningEffort": "none",

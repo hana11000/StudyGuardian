@@ -20,9 +20,9 @@ public partial class FloatingWindow : Window
         Left = SystemParameters.WorkArea.Right - Width - 24;
         Top = SystemParameters.WorkArea.Top + 24;
     }
-    public void Update(StudySessionSnapshot snapshot, string goal)
+    public void Update(StudySessionSnapshot snapshot, string goal, EscalationSnapshot? escalation = null)
     {
-        StatusDot.Fill = ActivityRow.BrushFor(snapshot.PauseReason == PauseReason.None ? snapshot.Decision.Verdict : StudyVerdict.Neutral);
+        StatusDot.Fill = ActivityRow.BrushForState(snapshot, escalation);
         StatusText.Text = ActivityRow.DisplayState(snapshot);
         TimeText.Text = ActivityRow.Countdown(snapshot.Remaining);
         GoalText.Text = goal.ReplaceLineEndings(" ");

@@ -29,9 +29,9 @@ public sealed class SessionUiOptions
 
 internal static class ConfigurationLoader
 {
-    private sealed record Configuration(MonitoringOptions Monitoring, SessionUiOptions Session, AiOptions Ai);
+    private sealed record Configuration(MonitoringOptions Monitoring, SessionUiOptions Session, AiOptions Ai, InterventionOptions Intervention);
 
-    public static (MonitoringOptions Options, SessionUiOptions Session, AiOptions Ai, string DatabasePath) Load()
+    public static (MonitoringOptions Options, SessionUiOptions Session, AiOptions Ai, InterventionOptions Intervention, string DatabasePath) Load()
     {
         var root = AppContext.BaseDirectory;
         var path = Path.Combine(root, "config", "defaults.json");
@@ -40,6 +40,8 @@ internal static class ConfigurationLoader
         var options = config?.Monitoring ?? throw new InvalidDataException("config/defaults.json 缺少 monitoring 配置。");
         var session = config?.Session ?? throw new InvalidDataException("config/defaults.json 缺少 session 配置。");
         var ai = config?.Ai ?? throw new InvalidDataException("config/defaults.json 缺少 ai 配置。");
+        var intervention = config?.Intervention ?? throw new InvalidDataException("config/defaults.json 缺少 intervention 配置。");
+        intervention.Validate();
         if (options.AwayAfterSeconds <= 0 || options.IdleSampleMilliseconds <= 0 || options.CheckpointSeconds <= 0 ||
             options.RecentEventLimit <= 0 || options.MaximumTitleCharacters <= 0 || options.MaximumTitleCharacters == int.MaxValue ||
             options.ProtectedProcesses is null || options.ProtectedProcesses.Length == 0 || options.ProtectedProcesses.Any(string.IsNullOrWhiteSpace) ||
@@ -65,6 +67,6 @@ internal static class ConfigurationLoader
             ai.BrowserProcesses is not { Length: > 0 } || ai.MixedContentDomains is not { Length: > 0 } ||
             ai.BrowserProcesses.Any(string.IsNullOrWhiteSpace) || ai.MixedContentDomains.Any(string.IsNullOrWhiteSpace))
             throw new InvalidDataException("AI 配置中的模型、阈值或数量无效。");
-        return (options, session, ai, databasePath);
+        return (options, session, ai, intervention, databasePath);
     }
 }

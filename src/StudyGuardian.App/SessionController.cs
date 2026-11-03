@@ -34,6 +34,8 @@ public sealed class SessionController : IAsyncDisposable
     private long? _requestedRevision;
     private Task _aiWork = Task.CompletedTask;
     private bool _aiUnavailable;
+    private readonly InterventionOptions _interventionOptions;
+    private EscalationEngine? _escalation;
 
     public bool IsReady { get; private set; }
     public bool IsBusy { get; private set; }
@@ -46,14 +48,17 @@ public sealed class SessionController : IAsyncDisposable
     public StudySessionOptions? Options { get; private set; }
     public StudySessionSnapshot Snapshot => _session.Snapshot;
     public string AiStatus => !_aiSettings.IsConfigured ? "本地规则" : _aiUnavailable ? "AI 暂不可用" : "AI 已启用";
+    public EscalationSnapshot? Escalation => _escalation?.Snapshot;
+    public WindowSnapshot? LastStudyWindow { get; private set; }
     public event EventHandler? StateChanged;
     public event EventHandler<ActivitySegment>? SegmentSaved;
 
-    public SessionController(MonitoringOptions options, SessionUiOptions sessionOptions, AiOptions aiOptions, AiSettingsStore aiSettings, string databasePath, Dispatcher dispatcher)
+    public SessionController(MonitoringOptions options, SessionUiOptions sessionOptions, AiOptions aiOptions, AiSettingsStore aiSettings, InterventionOptions interventionOptions, string databasePath, Dispatcher dispatcher)
     {
         _options = options;
         _aiOptions = aiOptions;
         _aiSettings = aiSettings;
+        _interventionOptions = interventionOptions;
         _repository = new(databasePath);
         _monitor = new(options.MaximumTitleCharacters);
         _dispatcher = dispatcher;
@@ -88,6 +93,9 @@ public sealed class SessionController : IAsyncDisposable
         {
             Options = options with { Rules = options.Rules.ToArray() };
             _recent.Clear(); _aiUnavailable = false;
+            LastStudyWindow = null;
+            _escalation = new(_clock, _interventionOptions, options.Strictness,
+                TimeSpan.FromMinutes(options.Policy?.SupportiveTimeLimitMinutes ?? _aiOptions.DefaultSupportiveMinutes));
             _pipeline = _aiSettings.IsConfigured ? new(_clock, CreateAiClient(), _repository, _aiOptions, _aiSettings.Current.Model) : null;
             _sessionId = Guid.NewGuid().ToString("N");
             await _repository.StartSessionAsync(_sessionId, _clock.UtcNow, Options);
@@ -151,6 +159,14 @@ public sealed class SessionController : IAsyncDisposable
 
     private void ProgressChanged()
     {
+        if (_escalation is { } engine && _session.Checkpoint().SingleOrDefault() is { } current)
+        {
+            var oldLevel = engine.Snapshot.Level;
+            var next = engine.Record(current);
+            if (next.Level != oldLevel) Queue([current]);
+        }
+        if (Snapshot is { IsRunning: true, PauseReason: PauseReason.None, Decision: { Verdict: StudyVerdict.OnTask, Source: not DecisionSource.Fallback }, Window: { } study })
+            LastStudyWindow = study;
         ScheduleDecision();
         Notify();
         if (!Snapshot.IsRunning && HasSession && !IsBusy && !IsFaulted) _ = StopAsync();
@@ -198,13 +214,15 @@ public sealed class SessionController : IAsyncDisposable
     {
         foreach (var segment in segments)
         {
+            var escalation = _escalation?.Record(segment);
+            var enriched = segment with { Level = escalation is { IsDistracting: true } ? Math.Max(0, (int)escalation.Level) : 0 };
             if (segment.PauseReason == PauseReason.None && segment.Decision?.Verdict is StudyVerdict.OnTask or StudyVerdict.Supportive or StudyVerdict.Distracted)
             {
                 _recent.RemoveAll(s => s.Id == segment.Id);
                 _recent.Add(segment);
                 while (_recent.Count > _aiOptions.RecentActivityLimit) _recent.RemoveAt(0);
             }
-            if (!IsFaulted) _writes = SaveAfterAsync(_writes, segment);
+            if (!IsFaulted) _writes = SaveAfterAsync(_writes, enriched);
         }
     }
 

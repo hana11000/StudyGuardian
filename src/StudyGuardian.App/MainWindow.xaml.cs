@@ -21,14 +21,17 @@ public partial class MainWindow : Window
     private readonly AiSettingsStore _aiSettings;
     private CancellationTokenSource? _generationCancellation;
     private bool _generating;
+    private readonly InterventionPresenter _interventions;
 
-    public MainWindow(MonitoringOptions options, SessionUiOptions sessionOptions, AiOptions aiOptions, string databasePath)
+    public MainWindow(MonitoringOptions options, SessionUiOptions sessionOptions, AiOptions aiOptions, InterventionOptions interventionOptions, string databasePath)
     {
         InitializeComponent();
         _sessionOptions = sessionOptions;
         _recentLimit = options.RecentEventLimit;
         _aiSettings = new(Path.GetDirectoryName(databasePath)!, aiOptions);
-        _controller = new(options, sessionOptions, aiOptions, _aiSettings, databasePath, Dispatcher);
+        _controller = new(options, sessionOptions, aiOptions, _aiSettings, interventionOptions, databasePath, Dispatcher);
+        _interventions = new(interventionOptions, new(options.ProtectedProcesses, Environment.ProcessId, options.MaximumTitleCharacters), Dispatcher, ShowMain);
+        _interventions.Failed += (_, message) => { NoticeText.Text = message; NoticeBorder.Visibility = Visibility.Visible; };
         SetupControl.Initialize(sessionOptions, aiOptions);
         SetupControl.GeneratePolicyRequested += GeneratePolicyRequested;
         _controller.StateChanged += (_, _) => UpdateState();
@@ -93,7 +96,7 @@ public partial class MainWindow : Window
             _floating.PauseRequested += async (_, _) => await TogglePauseAsync();
             _floating.OpenMainRequested += (_, _) => ShowMain();
         }
-        _floating.Update(_controller.Snapshot, _controller.Options!.Goal);
+        _floating.Update(_controller.Snapshot, _controller.Options!.Goal, _controller.Escalation);
         _floating.Show();
     }
     private void ShowMain()
@@ -107,6 +110,7 @@ public partial class MainWindow : Window
     {
         var state = _controller.Snapshot;
         var active = _controller.HasSession;
+        if (!_closing) _interventions.Update(state, _controller.Escalation, _controller.Options?.Policy?.GoalSummary ?? _controller.Options?.Goal ?? "", _controller.LastStudyWindow);
         SetupControl.Visibility = active ? Visibility.Collapsed : Visibility.Visible;
         StartButton.Visibility = active || HistoryPanel.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
         RunningPanel.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
@@ -121,14 +125,14 @@ public partial class MainWindow : Window
             GoalText.Text = options.Goal;
             GoalText.ToolTip = options.Goal;
             StatusText.Text = ActivityRow.DisplayState(state);
-            StatusDot.Fill = ActivityRow.BrushFor(state.IsRunning && state.PauseReason == PauseReason.None ? state.Decision.Verdict : StudyVerdict.Neutral);
+            StatusDot.Fill = ActivityRow.BrushForState(state, _controller.Escalation);
             TimeText.Text = ActivityRow.Countdown(state.Remaining);
             FocusText.Text = "专注率 " + (state.FocusRate is { } rate ? rate.ToString("P0") : "—");
             ProcessText.Text = state.Window?.ProcessName ?? "—";
             WindowTitleText.Text = state.Window?.Title ?? "—";
             WindowTitleText.ToolTip = state.Window?.Title;
             PauseButton.Content = state.IsManuallyPaused ? "继续" : "暂停";
-            _floating?.Update(state, options.Goal);
+            _floating?.Update(state, options.Goal, _controller.Escalation);
         }
         SavedText.Text = _controller.IsBusy ? "保存中…" : _controller.LastSavedAt is { } saved ? "已保存 · " + saved.ToString("HH:mm:ss") : "";
         if (_controller.IsFaulted)
@@ -182,6 +186,7 @@ public partial class MainWindow : Window
         e.Cancel = true;
         if (_closing) return;
         _closing = true;
+        _interventions.Dispose();
         _generationCancellation?.Cancel();
         UpdateState();
         await _operation;

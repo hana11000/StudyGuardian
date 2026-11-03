@@ -83,12 +83,12 @@ public sealed partial class SqliteActivityRepository : IActivityRepository, IDec
             using var command = connection.CreateCommand();
             command.CommandText = """
                 INSERT INTO events(id, session_id, ts, end, process, process_id, window_handle, title,
-                    url, verdict, source, duration_seconds, duration_ticks, active_seconds, pause_reason, is_accessible)
+                    url, verdict, source, duration_seconds, duration_ticks, active_seconds, pause_reason, is_accessible, level)
                 VALUES($id, $session, $start, $end, $process, $pid, $handle, $title,
-                    $url, $verdict, $source, $seconds, $ticks, $active, $reason, $accessible)
+                    $url, $verdict, $source, $seconds, $ticks, $active, $reason, $accessible, $level)
                 ON CONFLICT(id) DO UPDATE SET end=excluded.end,
                     duration_seconds=excluded.duration_seconds, duration_ticks=excluded.duration_ticks,
-                    active_seconds=excluded.active_seconds
+                    active_seconds=excluded.active_seconds, level=MAX(events.level, excluded.level)
                 WHERE excluded.duration_ticks >= events.duration_ticks;
                 """;
             command.Parameters.AddWithValue("$id", segment.Id);
@@ -107,6 +107,7 @@ public sealed partial class SqliteActivityRepository : IActivityRepository, IDec
             command.Parameters.AddWithValue("$active", segment.ActiveSeconds);
             command.Parameters.AddWithValue("$reason", segment.PauseReason.ToString());
             command.Parameters.AddWithValue("$accessible", segment.Window.IsAccessible);
+            command.Parameters.AddWithValue("$level", segment.Level);
             command.ExecuteNonQuery();
         });
     }
@@ -132,7 +133,7 @@ public sealed partial class SqliteActivityRepository : IActivityRepository, IDec
             using var command = connection.CreateCommand();
             command.CommandText = """
                 SELECT id, session_id, window_handle, process_id, process, title, is_accessible,
-                    ts, end, duration_ticks, pause_reason, url, verdict, source FROM events ORDER BY ts DESC, rowid DESC LIMIT $limit;
+                    ts, end, duration_ticks, pause_reason, url, verdict, source, level FROM events ORDER BY ts DESC, rowid DESC LIMIT $limit;
                 """;
             command.Parameters.AddWithValue("$limit", limit);
             using var reader = command.ExecuteReader();
@@ -144,7 +145,7 @@ public sealed partial class SqliteActivityRepository : IActivityRepository, IDec
                     DateTimeOffset.Parse(reader.GetString(7), CultureInfo.InvariantCulture),
                     DateTimeOffset.Parse(reader.GetString(8), CultureInfo.InvariantCulture),
                     TimeSpan.FromTicks(reader.GetInt64(9)), Enum.Parse<PauseReason>(reader.GetString(10)),
-                    reader.IsDBNull(12) ? null : ReadDecision(reader.GetString(12), reader.GetString(13))));
+                    reader.IsDBNull(12) ? null : ReadDecision(reader.GetString(12), reader.GetString(13)), reader.GetInt32(14)));
             return rows;
         });
     }

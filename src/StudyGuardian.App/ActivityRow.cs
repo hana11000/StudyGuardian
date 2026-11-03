@@ -34,7 +34,7 @@ public sealed class ActivityRow(ActivitySegment segment)
     public static string DisplayVerdict(StudyVerdict verdict) => verdict switch
     {
         StudyVerdict.OnTask => "专注中", StudyVerdict.Supportive => "辅助", StudyVerdict.Distracted => "分心",
-        StudyVerdict.Neutral => "暂停", _ => "待判定"
+        StudyVerdict.Neutral => "暂停", StudyVerdict.Uncertain => "待确认", _ => "待判定"
     };
     public static string DisplayState(StudySessionSnapshot state) => !state.IsRunning ? state.IsCompleted ? "已完成" : "已结束" :
         state.PauseReason != PauseReason.None ? DisplayPauseReason(state.PauseReason) : DisplayVerdict(state.Decision.Verdict);

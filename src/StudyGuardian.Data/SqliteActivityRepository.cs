@@ -6,7 +6,7 @@ using StudyGuardian.Core;
 
 namespace StudyGuardian.Data;
 
-public sealed class SqliteActivityRepository : IActivityRepository
+public sealed partial class SqliteActivityRepository : IActivityRepository, IDecisionCache
 {
     private readonly object _gate = new();
     private readonly string _connectionString;
@@ -32,7 +32,7 @@ public sealed class SqliteActivityRepository : IActivityRepository
     {
         using var version = connection.CreateCommand();
         version.CommandText = "PRAGMA user_version";
-        if (Convert.ToInt32(version.ExecuteScalar(), CultureInfo.InvariantCulture) > 1)
+        if (Convert.ToInt32(version.ExecuteScalar(), CultureInfo.InvariantCulture) > 2)
             throw new InvalidDataException("数据库版本较新，请使用相应版本的 Study Guardian。");
 
         using var journal = connection.CreateCommand();
@@ -68,7 +68,8 @@ public sealed class SqliteActivityRepository : IActivityRepository
         command.Parameters.AddWithValue("$id", sessionId);
         command.Parameters.AddWithValue("$start", Format(startedAt));
         command.Parameters.AddWithValue("$goal", options.Goal);
-        command.Parameters.AddWithValue("$policy", JsonSerializer.Serialize(new { duration_seconds = options.Duration.TotalSeconds, rules = options.Rules }, PolicyJson));
+        command.Parameters.AddWithValue("$policy", JsonSerializer.Serialize(new { duration_seconds = options.Duration.TotalSeconds, rules = options.Rules,
+            goal_summary = options.Policy?.GoalSummary, supportive_time_limit_minutes = options.Policy?.SupportiveTimeLimitMinutes }, PolicyJson));
         command.Parameters.AddWithValue("$strictness", options.Strictness.ToString().ToLowerInvariant());
         command.ExecuteNonQuery();
     });

@@ -20,6 +20,7 @@ public sealed class StudySession
     private long _classifiedTicks;
     private long _closedActiveTicks;
     private DateTimeOffset? _budgetEndedAt;
+    private long _visitRevision;
 
     public StudySession(IClock clock, StudyTimingOptions timing, IEnumerable<string> protectedProcesses, int ownProcessId)
     {
@@ -110,6 +111,21 @@ public sealed class StudySession
 
     public DateTimeOffset? EndedAt => _budgetEndedAt ?? _recorder.EndedAt;
 
+    public DecisionTicket? PendingDecision => Snapshot.IsRunning && Snapshot.PauseReason == PauseReason.None &&
+        _dwellDecision?.Verdict == StudyVerdict.Unknown && _dwellWindow is { } window
+            ? new(_visitRevision, window, (_clock.Elapsed - _dwellStarted).TotalSeconds) : null;
+
+    public IReadOnlyList<ActivitySegment> ApplyExternalDecision(DecisionTicket ticket, RuleDecision decision, WindowSnapshot window, TimeSpan idle)
+    {
+        List<ActivitySegment> output = [.. Observe(window, idle)];
+        if (PendingDecision is not { } pending || pending.Revision != ticket.Revision || pending.Window != ticket.Window) return output;
+        if (decision.Source is not (DecisionSource.Llm or DecisionSource.Cache or DecisionSource.Fallback) ||
+            decision.Verdict is StudyVerdict.Neutral or StudyVerdict.Unknown) return output;
+        _dwellDecision = decision;
+        Collect(_recorder.Observe(window, idle, decision), output);
+        return output;
+    }
+
     public StudySessionSnapshot Snapshot
     {
         get
@@ -128,6 +144,7 @@ public sealed class StudySession
 
     private void ResetDwell(WindowSnapshot window)
     {
+        _visitRevision++;
         _dwellWindow = window;
         _dwellStarted = _clock.Elapsed;
         _dwellDecision = null;

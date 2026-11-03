@@ -32,6 +32,12 @@ public partial class RuleGroupControl : UserControl
         return true;
     }
 
+    public void SetRules(IEnumerable<StudyRule> rules)
+    {
+        _rules.Clear(); _rules.AddRange(rules.Where(r => r.Kind == _kind));
+        CancelEditor(); RenderTags();
+    }
+
     private void RenderTags()
     {
         TagsPanel.Children.Clear();

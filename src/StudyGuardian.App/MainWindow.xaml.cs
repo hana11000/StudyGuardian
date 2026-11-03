@@ -18,14 +18,19 @@ public partial class MainWindow : Window
     private bool _closing;
     private bool _allowClose;
     private bool _sessionVisible;
+    private readonly AiSettingsStore _aiSettings;
+    private CancellationTokenSource? _generationCancellation;
+    private bool _generating;
 
-    public MainWindow(MonitoringOptions options, SessionUiOptions sessionOptions, string databasePath)
+    public MainWindow(MonitoringOptions options, SessionUiOptions sessionOptions, AiOptions aiOptions, string databasePath)
     {
         InitializeComponent();
         _sessionOptions = sessionOptions;
         _recentLimit = options.RecentEventLimit;
-        _controller = new(options, sessionOptions, databasePath, Dispatcher);
-        SetupControl.Initialize(sessionOptions);
+        _aiSettings = new(Path.GetDirectoryName(databasePath)!, aiOptions);
+        _controller = new(options, sessionOptions, aiOptions, _aiSettings, databasePath, Dispatcher);
+        SetupControl.Initialize(sessionOptions, aiOptions);
+        SetupControl.GeneratePolicyRequested += GeneratePolicyRequested;
         _controller.StateChanged += (_, _) => UpdateState();
         _controller.SegmentSaved += (_, segment) => ShowSavedSegment(segment);
         RecordsGrid.ItemsSource = _rows;
@@ -37,6 +42,25 @@ public partial class MainWindow : Window
     {
         _operation = _controller.InitializeAsync();
         await _operation;
+        if (_aiSettings.LoadError is { } error) { NoticeText.Text = error; NoticeBorder.Visibility = Visibility.Visible; }
+    }
+    private void SettingsClick(object sender, RoutedEventArgs e)
+    { new SettingsWindow(_aiSettings) { Owner = this }.ShowDialog(); UpdateState(); }
+    private async void GeneratePolicyRequested(object? sender, EventArgs e)
+    {
+        if (_closing || _generating) return;
+        _generationCancellation = new();
+        _operation = GeneratePolicyAsync(_generationCancellation.Token);
+        await _operation;
+        _generationCancellation.Dispose(); _generationCancellation = null;
+    }
+    private async Task GeneratePolicyAsync(CancellationToken cancellationToken)
+    {
+        _generating = true; SetupControl.SetGenerating(true); UpdateState();
+        try { SetupControl.ApplyPolicy(await _controller.GeneratePolicyAsync(SetupControl.Goal, cancellationToken)); }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
+        catch (AiUnavailableException ex) { SetupControl.ShowPolicyError(ex.Message); }
+        finally { _generating = false; SetupControl.SetGenerating(false); UpdateState(); }
     }
     private async void StartRequested(object? sender, EventArgs e)
     {
@@ -86,7 +110,9 @@ public partial class MainWindow : Window
         SetupControl.Visibility = active ? Visibility.Collapsed : Visibility.Visible;
         StartButton.Visibility = active || HistoryPanel.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
         RunningPanel.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
-        SetupControl.IsEnabled = _controller.IsReady && !_controller.IsBusy && !_controller.IsFaulted && !_closing;
+        SetupControl.IsEnabled = _controller.IsReady && !_controller.IsBusy && !_controller.IsFaulted && !_closing && !_generating;
+        SettingsButton.IsEnabled = SetupControl.IsEnabled && !active;
+        AiStatusText.Text = _controller.AiStatus;
         StartButton.IsEnabled = SetupControl.IsEnabled;
         PauseButton.IsEnabled = FloatButton.IsEnabled = StopButton.IsEnabled = state.IsRunning && !_controller.IsBusy && !_controller.IsFaulted && !_closing;
         DataFolderButton.IsEnabled = _controller.IsReady;
@@ -156,6 +182,7 @@ public partial class MainWindow : Window
         e.Cancel = true;
         if (_closing) return;
         _closing = true;
+        _generationCancellation?.Cancel();
         UpdateState();
         await _operation;
         await _controller.DisposeAsync();

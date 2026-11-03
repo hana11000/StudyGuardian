@@ -8,11 +8,19 @@ namespace StudyGuardian.App;
 public partial class SessionSetupControl : UserControl
 {
     private SessionUiOptions _options = null!;
+    private AiOptions _aiOptions = null!;
+    private StudyPolicy? _generatedPolicy;
+    private string? _generatedGoal;
+    public event EventHandler? GeneratePolicyRequested;
+    public string Goal => GoalBox.Text.Trim();
     public SessionSetupControl() => InitializeComponent();
 
-    public void Initialize(SessionUiOptions options)
+    public void Initialize(SessionUiOptions options, AiOptions aiOptions)
     {
         _options = options;
+        _aiOptions = aiOptions;
+        GoalBox.MaxLength = aiOptions.MaximumGoalCharacters;
+        SupportiveMinutesBox.Text = aiOptions.DefaultSupportiveMinutes.ToString(CultureInfo.CurrentCulture);
         AllowRules.Initialize(RuleKind.Allow, "允许", "SuccessBrush");
         SupportiveRules.Initialize(RuleKind.Supportive, "辅助", "AmberBrush");
         BlockRules.Initialize(RuleKind.Block, "禁止", "DangerBrush");
@@ -55,9 +63,24 @@ public partial class SessionSetupControl : UserControl
             return false;
         }
         if (!AllowRules.TryGetRules(out var allow) || !SupportiveRules.TryGetRules(out var supportive) || !BlockRules.TryGetRules(out var block)) return false;
+        if (!int.TryParse(SupportiveMinutesBox.Text, out var supportiveMinutes) || supportiveMinutes <= 0 || supportiveMinutes > _aiOptions.MaximumSupportiveMinutes)
+        { ShowPolicyError($"辅助上限为 1–{_aiOptions.MaximumSupportiveMinutes} 分钟"); return false; }
         var strictness = GentleChoice.IsChecked == true ? SessionStrictness.Gentle : StrictChoice.IsChecked == true ? SessionStrictness.Strict : SessionStrictness.Standard;
-        options = new(goal, TimeSpan.FromMinutes(minutes), strictness, [.. allow, .. supportive, .. block]);
+        StudyRule[] rules = [.. allow, .. supportive, .. block];
+        options = new(goal, TimeSpan.FromMinutes(minutes), strictness, rules,
+            new(_generatedGoal == goal ? _generatedPolicy?.GoalSummary ?? goal : goal, rules, supportiveMinutes));
+        PolicyError.Visibility = Visibility.Collapsed;
         return true;
     }
+    public void ApplyPolicy(StudyPolicy policy)
+    {
+        _generatedPolicy = policy; _generatedGoal = Goal;
+        AllowRules.SetRules(policy.Rules); SupportiveRules.SetRules(policy.Rules); BlockRules.SetRules(policy.Rules);
+        SupportiveMinutesBox.Text = policy.SupportiveTimeLimitMinutes.ToString(CultureInfo.CurrentCulture);
+        PolicyError.Visibility = Visibility.Collapsed;
+    }
+    public void SetGenerating(bool generating) => GenerateButton.Content = generating ? "生成中…" : "生成规则";
+    public void ShowPolicyError(string message) { PolicyError.Text = message; PolicyError.Visibility = Visibility.Visible; }
+    private void GenerateClick(object sender, RoutedEventArgs e) => GeneratePolicyRequested?.Invoke(this, EventArgs.Empty);
     private void DurationChanged(object sender, RoutedEventArgs e) => CustomDurationRow.Visibility = ((RadioButton)sender).Tag is null ? Visibility.Visible : Visibility.Collapsed;
 }

@@ -56,6 +56,16 @@ Windows 本地学习监督工具：本地监听当前窗口，依次使用规则
 - 绿/琥珀/红分别表示学习、辅助或未知、分心；暂停为灰。浮窗置顶、半透明、可拖动，提供暂停/继续和返回主窗口。
 - 目标、严格度、时长与规则写 sessions；判定与来源写 events。原 M1 记录仍为 NULL/monitor。
 
+## M3 的具体约定
+
+- 生成策略以目标简称、可编辑类型规则和辅助上限保存；最终人工编辑结果覆盖草稿。
+- Responses API 使用 strict json_schema、store=false、3 秒超时；默认小模型放配置，设置可覆盖。
+- API 错误为 supportive/fallback；uncertain、低信心以及 fallback 都不可作为干预依据。
+- 缓存按目标/规则/模型隔离，优先精确 URL，再标题、域名、进程。浏览器不使用进程缓存，混合站点不使用域名缓存。
+- 异步结果使用窗口访问版本校验，切换、暂停或新会话后的旧结果丢弃。
+- API Key 以 DPAPI 存在 data，普通偏好与密钥分开；不读取旧密钥到界面。
+- M3 只实现判定，M4 才增加干预；暂未接真实 API Key，线上验收另行执行。
+
 ## 技术资料
 
 - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwineventhook （注册线程必须保持消息循环，保留委托引用）

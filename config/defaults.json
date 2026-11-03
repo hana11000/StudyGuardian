@@ -15,6 +15,25 @@
       "CredentialUIBroker.exe", "consent.exe", "SecurityHealthSystray.exe"
     ]
   },
+  "ai": {
+    "model": "gpt-6-luna",
+    "reasoningEffort": "none",
+    "requestTimeoutSeconds": 3,
+    "cacheMaxTtlMinutes": 30,
+    "failureBackoffSeconds": 30,
+    "minimumConfidence": 0.75,
+    "maximumResponseBytes": 131072,
+    "maximumOutputTokens": 1800,
+    "maximumRules": 40,
+    "maximumGoalCharacters": 2000,
+    "maximumPatternCharacters": 256,
+    "maximumReasonCharacters": 20,
+    "maximumSupportiveMinutes": 60,
+    "defaultSupportiveMinutes": 5,
+    "recentActivityLimit": 5,
+    "browserProcesses": ["chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", "opera.exe", "vivaldi.exe", "arc.exe"],
+    "mixedContentDomains": ["bilibili.com", "zhihu.com", "weixin.qq.com", "wechat.com", "youtube.com", "youtu.be", "reddit.com", "douyin.com", "weibo.com", "x.com", "twitter.com", "baidu.com", "bing.com", "google.com"]
+  },
   "session": {
     "presetMinutes": [25, 50, 90],
     "defaultDurationMinutes": 50,

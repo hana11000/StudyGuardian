@@ -10,6 +10,7 @@
     <ProjectReference Include="../StudyGuardian.Core/StudyGuardian.Core.csproj" />
     <ProjectReference Include="../StudyGuardian.Monitor/StudyGuardian.Monitor.csproj" />
     <ProjectReference Include="../StudyGuardian.Data/StudyGuardian.Data.csproj" />
+    <ProjectReference Include="../StudyGuardian.AI/StudyGuardian.AI.csproj" />
     <Content Include="../../config/defaults.json" Link="config/defaults.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

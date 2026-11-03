@@ -29,9 +29,9 @@ public sealed class SessionUiOptions
 
 internal static class ConfigurationLoader
 {
-    private sealed record Configuration(MonitoringOptions Monitoring, SessionUiOptions Session);
+    private sealed record Configuration(MonitoringOptions Monitoring, SessionUiOptions Session, AiOptions Ai);
 
-    public static (MonitoringOptions Options, SessionUiOptions Session, string DatabasePath) Load()
+    public static (MonitoringOptions Options, SessionUiOptions Session, AiOptions Ai, string DatabasePath) Load()
     {
         var root = AppContext.BaseDirectory;
         var path = Path.Combine(root, "config", "defaults.json");
@@ -39,6 +39,7 @@ internal static class ConfigurationLoader
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         var options = config?.Monitoring ?? throw new InvalidDataException("config/defaults.json 缺少 monitoring 配置。");
         var session = config?.Session ?? throw new InvalidDataException("config/defaults.json 缺少 session 配置。");
+        var ai = config?.Ai ?? throw new InvalidDataException("config/defaults.json 缺少 ai 配置。");
         if (options.AwayAfterSeconds <= 0 || options.IdleSampleMilliseconds <= 0 || options.CheckpointSeconds <= 0 ||
             options.RecentEventLimit <= 0 || options.MaximumTitleCharacters <= 0 || options.MaximumTitleCharacters == int.MaxValue ||
             options.ProtectedProcesses is null || options.ProtectedProcesses.Length == 0 || options.ProtectedProcesses.Any(string.IsNullOrWhiteSpace) ||
@@ -56,6 +57,14 @@ internal static class ConfigurationLoader
             session.RegexTimeoutMilliseconds <= 0 || session.RegexTimeoutMilliseconds == int.MaxValue ||
             !double.IsFinite(session.FloatingOpacity) || session.FloatingOpacity <= 0 || session.FloatingOpacity > 1)
             throw new InvalidDataException("会话配置中的时长、严格度或透明度无效。");
-        return (options, session, databasePath);
+        if (string.IsNullOrWhiteSpace(ai.Model) || !double.IsFinite(ai.RequestTimeoutSeconds) || ai.RequestTimeoutSeconds <= 0 ||
+            ai.CacheMaxTtlMinutes <= 0 || ai.FailureBackoffSeconds <= 0 || !double.IsFinite(ai.MinimumConfidence) || ai.MinimumConfidence < 0 || ai.MinimumConfidence > 1 ||
+            ai.MaximumResponseBytes <= 0 || ai.MaximumOutputTokens <= 0 || ai.MaximumRules <= 0 || ai.MaximumGoalCharacters <= 0 ||
+            ai.MaximumPatternCharacters <= 0 || ai.MaximumReasonCharacters <= 0 || ai.MaximumSupportiveMinutes <= 0 ||
+            ai.DefaultSupportiveMinutes <= 0 || ai.DefaultSupportiveMinutes > ai.MaximumSupportiveMinutes || ai.RecentActivityLimit <= 0 ||
+            ai.BrowserProcesses is not { Length: > 0 } || ai.MixedContentDomains is not { Length: > 0 } ||
+            ai.BrowserProcesses.Any(string.IsNullOrWhiteSpace) || ai.MixedContentDomains.Any(string.IsNullOrWhiteSpace))
+            throw new InvalidDataException("AI 配置中的模型、阈值或数量无效。");
+        return (options, session, ai, databasePath);
     }
 }

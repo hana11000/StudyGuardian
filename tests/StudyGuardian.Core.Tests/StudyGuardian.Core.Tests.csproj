@@ -9,5 +9,6 @@
     <PackageReference Include="MSTest.TestFramework" Version="3.11.1" />
     <ProjectReference Include="../../src/StudyGuardian.Core/StudyGuardian.Core.csproj" />
     <ProjectReference Include="../../src/StudyGuardian.Data/StudyGuardian.Data.csproj" />
+    <ProjectReference Include="../../src/StudyGuardian.AI/StudyGuardian.AI.csproj" />
   </ItemGroup>
 </Project>

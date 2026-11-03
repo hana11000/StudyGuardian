@@ -1,4 +1,4 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
@@ -16,6 +16,10 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StudyGuardian.Monitor", "src\StudyGuardian.Monitor\StudyGuardian.Monitor.csproj", "{3FB6AB3E-03B7-4CB5-BAFD-1D128CEF04D0}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StudyGuardian.App", "src\StudyGuardian.App\StudyGuardian.App.csproj", "{71B6A964-8833-4545-B7CE-165B5DAC7417}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StudyGuardian.AI", "src\StudyGuardian.AI\StudyGuardian.AI.csproj", "{5B02A6AA-780A-45C2-9EF5-4F7745BB2851}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StudyGuardian.Windows.Tests", "tests\StudyGuardian.Windows.Tests\StudyGuardian.Windows.Tests.csproj", "{32985D2E-6160-4CA1-98F4-E1E7C3D621C9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -46,6 +50,14 @@ Global
 		{71B6A964-8833-4545-B7CE-165B5DAC7417}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{71B6A964-8833-4545-B7CE-165B5DAC7417}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{71B6A964-8833-4545-B7CE-165B5DAC7417}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5B02A6AA-780A-45C2-9EF5-4F7745BB2851}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5B02A6AA-780A-45C2-9EF5-4F7745BB2851}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5B02A6AA-780A-45C2-9EF5-4F7745BB2851}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5B02A6AA-780A-45C2-9EF5-4F7745BB2851}.Release|Any CPU.Build.0 = Release|Any CPU
+		{32985D2E-6160-4CA1-98F4-E1E7C3D621C9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{32985D2E-6160-4CA1-98F4-E1E7C3D621C9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{32985D2E-6160-4CA1-98F4-E1E7C3D621C9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{32985D2E-6160-4CA1-98F4-E1E7C3D621C9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{8D81EF23-C44E-4752-A812-5CB4A62EE7C6} = {12B5C731-668E-438F-AEDD-6CB352B3D71C}
@@ -53,5 +65,7 @@ Global
 		{3E013017-94B9-410E-BE5A-88FEC9BB9EAF} = {12B5C731-668E-438F-AEDD-6CB352B3D71C}
 		{3FB6AB3E-03B7-4CB5-BAFD-1D128CEF04D0} = {12B5C731-668E-438F-AEDD-6CB352B3D71C}
 		{71B6A964-8833-4545-B7CE-165B5DAC7417} = {12B5C731-668E-438F-AEDD-6CB352B3D71C}
+		{5B02A6AA-780A-45C2-9EF5-4F7745BB2851} = {12B5C731-668E-438F-AEDD-6CB352B3D71C}
+		{32985D2E-6160-4CA1-98F4-E1E7C3D621C9} = {DDB9F1E7-4D99-4C81-B548-ED1FD1142337}
 	EndGlobalSection
 EndGlobal

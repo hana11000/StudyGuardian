@@ -30,4 +30,12 @@ CREATE TABLE IF NOT EXISTS events (
 
 CREATE INDEX IF NOT EXISTS ix_events_session_time ON events(session_id, ts);
 CREATE INDEX IF NOT EXISTS ix_events_time ON events(ts DESC);
-PRAGMA user_version = 1;
+CREATE TABLE IF NOT EXISTS decision_cache (
+    key TEXT PRIMARY KEY,
+    verdict TEXT NOT NULL,
+    reason TEXT,
+    confidence REAL NOT NULL,
+    expires_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_cache_expiry ON decision_cache(expires_at);
+PRAGMA user_version = 2;

@@ -40,6 +40,27 @@ public sealed class SqliteActivityRepositoryTests
             _start, _start.AddSeconds(seconds), TimeSpan.FromSeconds(seconds), reason);
 
     [TestMethod]
+    public async Task DecisionCachePersistsAcrossInstancesAndExpiresAtBoundary()
+    {
+        var entry = new CachedDecision("quoted'key", new(StudyVerdict.Supportive, DecisionSource.Llm, .95, "税法 '讲解'"), _start.AddMinutes(30));
+        await _repository.SaveDecisionAsync(entry, default);
+        var reopened = new SqliteActivityRepository(_path);
+        Assert.AreEqual(entry, await reopened.FindDecisionAsync(entry.Key, _start.AddMinutes(29), default));
+        Assert.IsNull(await reopened.FindDecisionAsync(entry.Key, _start.AddMinutes(30), default));
+        Assert.HasCount(0, await _repository.ReadRecentAsync(10));
+    }
+
+    [TestMethod]
+    public async Task DecisionCacheReplacesExistingKey()
+    {
+        var entry = new CachedDecision("k", new(StudyVerdict.Uncertain, DecisionSource.Llm, .5, "待确认"), _start.AddMinutes(5));
+        await _repository.SaveDecisionAsync(entry, default);
+        var replacement = entry with { Decision = new(StudyVerdict.OnTask, DecisionSource.Llm, 1, "学习"), ExpiresAt = _start.AddMinutes(10) };
+        await _repository.SaveDecisionAsync(replacement, default);
+        Assert.AreEqual(replacement, await _repository.FindDecisionAsync("k", _start.AddMinutes(6), default));
+    }
+
+    [TestMethod]
     public async Task UnicodeAndSqlLikeTitlesSurviveRealDatabaseRoundTrip()
     {
         var expected = Segment("first", 12.125);

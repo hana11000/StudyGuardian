@@ -1,4 +1,6 @@
 using System.Windows.Threading;
+using System.Net.Http;
+using StudyGuardian.AI;
 using Microsoft.Win32;
 using StudyGuardian.Core;
 using StudyGuardian.Data;
@@ -23,6 +25,15 @@ public sealed class SessionController : IAsyncDisposable
     private TimeSpan _lastCheckpoint;
     private TimeSpan _idle;
     private bool _disposed;
+    private readonly AiOptions _aiOptions;
+    private readonly AiSettingsStore _aiSettings;
+    private readonly HttpClient _http = new(new SocketsHttpHandler { AllowAutoRedirect = false });
+    private readonly List<ActivitySegment> _recent = [];
+    private DecisionPipeline? _pipeline;
+    private CancellationTokenSource? _aiCancellation;
+    private long? _requestedRevision;
+    private Task _aiWork = Task.CompletedTask;
+    private bool _aiUnavailable;
 
     public bool IsReady { get; private set; }
     public bool IsBusy { get; private set; }
@@ -34,12 +45,15 @@ public sealed class SessionController : IAsyncDisposable
     public DateTime? LastSavedAt { get; private set; }
     public StudySessionOptions? Options { get; private set; }
     public StudySessionSnapshot Snapshot => _session.Snapshot;
+    public string AiStatus => !_aiSettings.IsConfigured ? "本地规则" : _aiUnavailable ? "AI 暂不可用" : "AI 已启用";
     public event EventHandler? StateChanged;
     public event EventHandler<ActivitySegment>? SegmentSaved;
 
-    public SessionController(MonitoringOptions options, SessionUiOptions sessionOptions, string databasePath, Dispatcher dispatcher)
+    public SessionController(MonitoringOptions options, SessionUiOptions sessionOptions, AiOptions aiOptions, AiSettingsStore aiSettings, string databasePath, Dispatcher dispatcher)
     {
         _options = options;
+        _aiOptions = aiOptions;
+        _aiSettings = aiSettings;
         _repository = new(databasePath);
         _monitor = new(options.MaximumTitleCharacters);
         _dispatcher = dispatcher;
@@ -73,6 +87,8 @@ public sealed class SessionController : IAsyncDisposable
         try
         {
             Options = options with { Rules = options.Rules.ToArray() };
+            _recent.Clear(); _aiUnavailable = false;
+            _pipeline = _aiSettings.IsConfigured ? new(_clock, CreateAiClient(), _repository, _aiOptions, _aiSettings.Current.Model) : null;
             _sessionId = Guid.NewGuid().ToString("N");
             await _repository.StartSessionAsync(_sessionId, _clock.UtcNow, Options);
             _idle = _idleProvider.GetIdleTime();
@@ -135,6 +151,7 @@ public sealed class SessionController : IAsyncDisposable
 
     private void ProgressChanged()
     {
+        ScheduleDecision();
         Notify();
         if (!Snapshot.IsRunning && HasSession && !IsBusy && !IsFaulted) _ = StopAsync();
     }
@@ -149,6 +166,7 @@ public sealed class SessionController : IAsyncDisposable
     private async Task StopCoreAsync()
     {
         IsBusy = true;
+        CancelDecision();
         _timer.Stop();
         Notify();
         try
@@ -164,6 +182,7 @@ public sealed class SessionController : IAsyncDisposable
             }
             _monitor.Stop();
             var logicalEnd = _session.EndedAt;
+            await _aiWork;
             await _writes;
             if (_sessionId is { } id && !IsFaulted)
             {
@@ -178,7 +197,64 @@ public sealed class SessionController : IAsyncDisposable
     private void Queue(IReadOnlyList<ActivitySegment> segments)
     {
         foreach (var segment in segments)
+        {
+            if (segment.PauseReason == PauseReason.None && segment.Decision?.Verdict is StudyVerdict.OnTask or StudyVerdict.Supportive or StudyVerdict.Distracted)
+            {
+                _recent.RemoveAll(s => s.Id == segment.Id);
+                _recent.Add(segment);
+                while (_recent.Count > _aiOptions.RecentActivityLimit) _recent.RemoveAt(0);
+            }
             if (!IsFaulted) _writes = SaveAfterAsync(_writes, segment);
+        }
+    }
+
+    public Task<StudyPolicy> GeneratePolicyAsync(string goal, CancellationToken cancellationToken)
+    {
+        if (!_aiSettings.Current.Enabled) throw new AiUnavailableException("请在设置中启用 AI");
+        return CreateAiClient().GeneratePolicyAsync(goal, cancellationToken);
+    }
+
+    private OpenAiStudyClient CreateAiClient() => new(_http, _aiSettings.ReadKey, _aiOptions, _aiSettings.Current.Model);
+
+    private void ScheduleDecision()
+    {
+        var ticket = _session.PendingDecision;
+        if (ticket is null || _pipeline is null || IsBusy || IsFaulted || _disposed) { CancelDecision(); return; }
+        if (_requestedRevision == ticket.Revision) return;
+        CancelDecision();
+        _requestedRevision = ticket.Revision;
+        _aiCancellation = new();
+        _aiWork = ResolveDecisionAsync(ticket, _pipeline, _aiCancellation);
+    }
+
+    private async Task ResolveDecisionAsync(DecisionTicket ticket, DecisionPipeline pipeline, CancellationTokenSource cancellation)
+    {
+        try
+        {
+            var request = new DecisionRequest(Options!.Goal, Options.Rules, ticket.Window,
+                _recent.Select(s => new RecentActivity(s.Window.ProcessName, s.Window.Title, s.Decision!.Verdict, s.Duration.TotalSeconds)).ToArray(), ticket.DwellSeconds);
+            RuleDecision decision;
+            try { decision = await pipeline.DecideAsync(request, RuleDecision.Unknown, cancellation.Token); }
+            catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { return; }
+            catch (Exception) { decision = new(StudyVerdict.Supportive, DecisionSource.Fallback, 0, "暂时无法判定"); }
+            if (cancellation.IsCancellationRequested || _disposed || IsBusy || !Snapshot.IsRunning) return;
+            _aiUnavailable = decision.Source == DecisionSource.Fallback;
+            _idle = _idleProvider.GetIdleTime();
+            Queue(_session.ApplyExternalDecision(ticket, decision, _monitor.Current, _idle));
+            ProgressChanged();
+        }
+        finally
+        {
+            if (ReferenceEquals(_aiCancellation, cancellation)) _aiCancellation = null;
+            cancellation.Dispose();
+        }
+    }
+
+    private void CancelDecision()
+    {
+        _aiCancellation?.Cancel();
+        _aiCancellation = null;
+        _requestedRevision = null;
     }
 
     private async Task SaveAfterAsync(Task previous, ActivitySegment segment)
@@ -249,6 +325,7 @@ public sealed class SessionController : IAsyncDisposable
         ErrorDetail = ex.Message;
         _timer.Stop();
         _monitor.Stop();
+        CancelDecision();
         _session.Stop();
         Notify();
     }
@@ -265,5 +342,6 @@ public sealed class SessionController : IAsyncDisposable
         _timer.Tick -= TimerTick;
         _monitor.Changed -= ForegroundChanged;
         _monitor.Dispose();
+        _http.Dispose();
     }
 }

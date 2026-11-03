@@ -10,6 +10,10 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
   <ItemGroup>
+    <Resource Include="Assets/Textures/noise-128.png" />
+    <Resource Include="Assets/Fonts/*.ttf" />
+    <Content Include="Assets/Fonts/LICENSE.pdf" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="Assets/Fonts/NOTICE.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Using Remove="System.Windows.Forms" />
     <Using Remove="System.Drawing" />
     <ProjectReference Include="../StudyGuardian.Core/StudyGuardian.Core.csproj" />

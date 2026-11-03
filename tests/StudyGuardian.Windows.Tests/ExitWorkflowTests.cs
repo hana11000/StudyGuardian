@@ -30,7 +30,7 @@ public class ExitWorkflowTests
         }) { IsBackground = true };
         thread.SetApartmentState(ApartmentState.STA); thread.Start(); return ready.Task.GetAwaiter().GetResult();
     });
-    private static Task RunUi(Func<Task> body) => Ui.Value.InvokeAsync(body).Task.Unwrap();
+    internal static Task RunUi(Func<Task> body) => Ui.Value.InvokeAsync(body).Task.Unwrap();
 
     [TestMethod] public Task RepeatedExitDuringConfirmationDoesNotReenterWpfClosing() => RunUi(async () =>
     {

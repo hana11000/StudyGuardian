@@ -1,0 +1,176 @@
+<Window x:Class="StudyGuardian.UiPreview.DemoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="clr-namespace:StudyGuardian.App.Controls;assembly=StudyGuardian.App"
+        Title="Study Guardian · UI 预览" Width="1184" Height="864" MinWidth="960" MinHeight="720"
+        WindowStartupLocation="CenterScreen" WindowStyle="None" AllowsTransparency="True"
+        Background="{DynamicResource M8.Transparent}" Foreground="{DynamicResource M8.Text}"
+        FontFamily="{DynamicResource M8.Font.Body}" FontSize="{DynamicResource M8.Type.Body}">
+  <Window.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="/StudyGuardian.App;component/Themes/Tokens.xaml"/>
+        <ResourceDictionary Source="/StudyGuardian.App;component/Themes/Light.xaml"/>
+        <ResourceDictionary Source="/StudyGuardian.App;component/Themes/Controls.xaml"/>
+      </ResourceDictionary.MergedDictionaries>
+      <Style x:Key="StateTile" TargetType="RadioButton">
+        <Setter Property="Foreground" Value="{DynamicResource M8.Text}"/>
+        <Setter Property="Cursor" Value="Hand"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="RadioButton">
+          <Border x:Name="Frame" CornerRadius="{StaticResource M8.Radius.Card}" BorderThickness="{StaticResource M8.Border.Thin}" BorderBrush="{DynamicResource M8.GlassEdge}" Background="{DynamicResource M8.Glass}">
+            <ContentPresenter Margin="1"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsChecked" Value="True"><Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource M8.Text}"/></Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Frame" Property="BorderThickness" Value="2"/></Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate></Setter.Value></Setter>
+      </Style>
+    </ResourceDictionary>
+  </Window.Resources>
+  <Grid x:Name="RootSurface" SizeChanged="ClipSurface" Background="{DynamicResource M8.Background}">
+    <ui:AmbientBackground x:Name="Ambient"/>
+    <Viewbox Stretch="Uniform" Margin="40">
+      <Grid Width="1088" Height="784">
+        <Grid.RowDefinitions><RowDefinition Height="40"/><RowDefinition Height="32"/><RowDefinition Height="536"/><RowDefinition Height="24"/><RowDefinition Height="112"/><RowDefinition Height="40"/></Grid.RowDefinitions>
+        <Grid MouseLeftButtonDown="DragWindow">
+          <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+            <TextBlock Text="◌" FontSize="28" Margin="0,0,12,0"/>
+            <TextBlock Text="Study Guardian" FontFamily="{DynamicResource M8.Font.Number}" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center"/>
+            <TextBlock Text="UI 预览" Style="{StaticResource M8.Caption}" Margin="16,0,0,0" VerticalAlignment="Center"/>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <RadioButton x:Name="LightChoice" Content="浅色" GroupName="Theme" IsChecked="True" Style="{StaticResource M8.PillChoice}" Checked="ThemeChanged" Margin="0,0,8,0"/>
+            <RadioButton x:Name="DarkChoice" Content="深色" GroupName="Theme" Style="{StaticResource M8.PillChoice}" Checked="ThemeChanged"/>
+            <Button Content="−" Style="{StaticResource M8.TextButton}" Click="MinimizeClick" Margin="16,0,0,0" AutomationProperties.Name="最小化"/>
+            <Button Content="×" Style="{StaticResource M8.TextButton}" Click="CloseClick" AutomationProperties.Name="关闭预览"/>
+          </StackPanel>
+        </Grid>
+        <Grid Grid.Row="2">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="664"/><ColumnDefinition Width="24"/><ColumnDefinition Width="400"/></Grid.ColumnDefinitions>
+          <ContentControl Style="{StaticResource M8.GlassCard}">
+            <Grid>
+              <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+              <TextBlock Text="今天学什么" Style="{StaticResource M8.Title}"/>
+              <TextBox Grid.Row="1" Text="用 Notion 学习税法一第3章 增值税" Style="{StaticResource M8.GoalInput}" Margin="0,12,0,24" AutomationProperties.Name="学习目标演示"/>
+              <StackPanel Grid.Row="2" Orientation="Horizontal">
+                <RadioButton Content="25" GroupName="Duration" Style="{StaticResource M8.PillChoice}" Width="72" Margin="0,0,8,0"/>
+                <RadioButton Content="50" GroupName="Duration" IsChecked="True" Style="{StaticResource M8.PillChoice}" Width="72" Margin="0,0,8,0"/>
+                <RadioButton Content="90" GroupName="Duration" Style="{StaticResource M8.PillChoice}" Width="72" Margin="0,0,8,0"/>
+                <RadioButton Content="自定义" GroupName="Duration" Style="{StaticResource M8.PillChoice}"/>
+                <TextBlock Text="分钟" Style="{StaticResource M8.Caption}" VerticalAlignment="Center" Margin="16,0,0,0"/>
+              </StackPanel>
+              <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,16,0,0">
+                <RadioButton Content="温和" GroupName="Strictness" Style="{StaticResource M8.PillChoice}" FontSize="12" Margin="0,0,8,0"/>
+                <RadioButton Content="标准" GroupName="Strictness" IsChecked="True" Style="{StaticResource M8.PillChoice}" FontSize="12" Margin="0,0,8,0"/>
+                <RadioButton Content="严格" GroupName="Strictness" Style="{StaticResource M8.PillChoice}" FontSize="12"/>
+              </StackPanel>
+              <StackPanel Grid.Row="4" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                  <Ellipse Width="6" Height="6" Fill="{DynamicResource M8.FocusDot}" Margin="0,0,8,0"/>
+                  <TextBlock Text="允许" Width="48" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource M8.Secondary}"/>
+                  <ContentControl Content="Notion   ×" Style="{StaticResource M8.Tag}" Margin="0,0,8,0"/>
+                  <ContentControl Content="dongao.com   ×" Style="{StaticResource M8.Tag}" Margin="0,0,8,0"/>
+                  <Button Content="+" Style="{StaticResource M8.TextButton}" Padding="12,6" AutomationProperties.Name="添加允许规则演示"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                  <Ellipse Width="6" Height="6" Fill="{DynamicResource M8.WarnDot}" Margin="0,0,8,0"/>
+                  <TextBlock Text="辅助" Width="48" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource M8.Secondary}"/>
+                  <ContentControl Content="计算器   ×" Style="{StaticResource M8.Tag}" Margin="0,0,8,0"/>
+                  <ContentControl Content="B站讲解   ×" Style="{StaticResource M8.Tag}" Margin="0,0,8,0"/>
+                  <Button Content="+" Style="{StaticResource M8.TextButton}" Padding="12,6" AutomationProperties.Name="添加辅助规则演示"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal">
+                  <Ellipse Width="6" Height="6" Fill="{DynamicResource M8.BlockDot}" Margin="0,0,8,0"/>
+                  <TextBlock Text="禁止" Width="48" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource M8.Secondary}"/>
+                  <ContentControl Content="抖音   ×" Style="{StaticResource M8.Tag}" Margin="0,0,8,0"/>
+                  <ContentControl Content="游戏   ×" Style="{StaticResource M8.Tag}" Margin="0,0,8,0"/>
+                  <Button Content="+" Style="{StaticResource M8.TextButton}" Padding="12,6" AutomationProperties.Name="添加禁止规则演示"/>
+                </StackPanel>
+              </StackPanel>
+              <Button Grid.Row="5" Content="开始专注   →" Style="{StaticResource M8.PrimaryButton}" Width="240" HorizontalAlignment="Center"/>
+            </Grid>
+          </ContentControl>
+          <Grid Grid.Column="2">
+            <Grid.RowDefinitions><RowDefinition Height="184"/><RowDefinition Height="24"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+            <ContentControl Style="{StaticResource M8.GlassCard}">
+              <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                <DockPanel>
+                  <TextBlock Text="50 分钟" DockPanel.Dock="Right" Style="{StaticResource M8.Caption}"/>
+                  <StackPanel Orientation="Horizontal">
+                    <Grid Width="8" Height="16" Margin="0,0,8,0">
+                      <Ellipse x:Name="StateHalo" Width="24" Height="24" Margin="-8,-4" Fill="{DynamicResource M8.FocusDot}" Opacity="{StaticResource M8.Dot.Dim}">
+                        <Ellipse.Effect><BlurEffect Radius="{StaticResource M8.Dot.Blur}"/></Ellipse.Effect>
+                        <Ellipse.Style>
+                          <Style TargetType="Ellipse">
+                            <Style.Triggers>
+                              <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                  <Condition Binding="{Binding IsAnimating, ElementName=Ambient}" Value="True"/>
+                                  <Condition Binding="{Binding State, ElementName=Ambient}" Value="{x:Static ui:AmbientState.Focus}"/>
+                                </MultiDataTrigger.Conditions>
+                                <MultiDataTrigger.EnterActions>
+                                  <BeginStoryboard x:Name="HaloBreath"><Storyboard>
+                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="{StaticResource M8.Dot.Dim}" To="{StaticResource M8.Dot.Bright}" Duration="{StaticResource M8.Motion.BreathHalfCycle}" AutoReverse="True" RepeatBehavior="Forever" EasingFunction="{StaticResource M8.Ease.Soft}"/>
+                                  </Storyboard></BeginStoryboard>
+                                </MultiDataTrigger.EnterActions>
+                                <MultiDataTrigger.ExitActions><RemoveStoryboard BeginStoryboardName="HaloBreath"/></MultiDataTrigger.ExitActions>
+                              </MultiDataTrigger>
+                            </Style.Triggers>
+                          </Style>
+                        </Ellipse.Style>
+                      </Ellipse>
+                      <Ellipse x:Name="StateDot" Width="7" Height="7" Fill="{DynamicResource M8.FocusDot}"/>
+                    </Grid>
+                    <TextBlock x:Name="StateText" Text="专注中" Style="{StaticResource M8.Caption}" Foreground="{DynamicResource M8.Secondary}"/>
+                  </StackPanel>
+                </DockPanel>
+                <TextBlock Grid.Row="1" Text="38:12" Style="{StaticResource M8.Timer}" VerticalAlignment="Center"/>
+                <DockPanel Grid.Row="2">
+                  <TextBlock Text="92%" FontFamily="{StaticResource M8.Font.Number}" Typography.NumeralAlignment="Tabular" DockPanel.Dock="Right"/>
+                  <TextBlock Text="增值税" Style="{StaticResource M8.Caption}"/>
+                </DockPanel>
+              </Grid>
+            </ContentControl>
+            <ContentControl Grid.Row="2" Style="{StaticResource M8.GlassCard}" Padding="24">
+              <StackPanel>
+                <TextBlock Text="控件" FontSize="{StaticResource M8.Type.Section}" FontWeight="SemiBold" Margin="0,0,0,16"/>
+                <TextBox Text="自定义标签" Style="{StaticResource M8.Input}" Margin="0,0,0,12" AutomationProperties.Name="标签演示"/>
+                <ComboBox SelectedIndex="1" Style="{StaticResource M8.ComboBox}" Margin="0,0,0,20" AutomationProperties.Name="严格度演示">
+                  <ComboBoxItem Content="温和"/><ComboBoxItem Content="标准"/><ComboBoxItem Content="严格"/>
+                </ComboBox>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                  <CheckBox Content="提示音" IsChecked="True" Style="{StaticResource M8.CheckBox}" Margin="0,0,24,0"/>
+                  <CheckBox Content="严格退出" Style="{StaticResource M8.CheckBox}"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal">
+                  <Button Content="继续" Style="{StaticResource M8.Button}" Padding="24,10" Margin="0,0,12,0"/>
+                  <Button Content="已暂停" Style="{StaticResource M8.Button}" Padding="24,10" IsEnabled="False"/>
+                </StackPanel>
+              </StackPanel>
+            </ContentControl>
+          </Grid>
+        </Grid>
+        <UniformGrid Grid.Row="4" Columns="4" Margin="-8,0">
+          <RadioButton x:Name="FocusState" GroupName="State" Tag="Focus" IsChecked="True" Checked="AmbientChoiceChanged" Style="{StaticResource StateTile}" Margin="8,0" AutomationProperties.Name="专注光">
+            <Grid SizeChanged="ClipTile"><ui:AmbientBackground State="Focus" MotionEnabled="False"/><StackPanel Margin="24" VerticalAlignment="Center"><TextBlock Text="专注" FontWeight="SemiBold"/><TextBlock Text="薄荷 · 天蓝" Style="{StaticResource M8.Caption}" Margin="0,8,0,0"/></StackPanel></Grid>
+          </RadioButton>
+          <RadioButton x:Name="WarnState" GroupName="State" Tag="Warn" Checked="AmbientChoiceChanged" Style="{StaticResource StateTile}" Margin="8,0" AutomationProperties.Name="提醒光">
+            <Grid SizeChanged="ClipTile"><ui:AmbientBackground State="Warn" MotionEnabled="False"/><StackPanel Margin="24" VerticalAlignment="Center"><TextBlock Text="提醒" FontWeight="SemiBold"/><TextBlock Text="杏色 · 蜜桃" Style="{StaticResource M8.Caption}" Margin="0,8,0,0"/></StackPanel></Grid>
+          </RadioButton>
+          <RadioButton x:Name="BlockState" GroupName="State" Tag="Block" Checked="AmbientChoiceChanged" Style="{StaticResource StateTile}" Margin="8,0" AutomationProperties.Name="拦截光">
+            <Grid SizeChanged="ClipTile"><ui:AmbientBackground State="Block" MotionEnabled="False"/><StackPanel Margin="24" VerticalAlignment="Center"><TextBlock Text="拦截" FontWeight="SemiBold"/><TextBlock Text="珊瑚 · 淡紫" Style="{StaticResource M8.Caption}" Margin="0,8,0,0"/></StackPanel></Grid>
+          </RadioButton>
+          <RadioButton x:Name="IdleState" GroupName="State" Tag="Idle" Checked="AmbientChoiceChanged" Style="{StaticResource StateTile}" Margin="8,0" AutomationProperties.Name="休息光">
+            <Grid SizeChanged="ClipTile"><ui:AmbientBackground State="Idle" MotionEnabled="False"/><StackPanel Margin="24" VerticalAlignment="Center"><TextBlock Text="休息" FontWeight="SemiBold"/><TextBlock Text="薰衣草 · 雾灰" Style="{StaticResource M8.Caption}" Margin="0,8,0,0"/></StackPanel></Grid>
+          </RadioButton>
+        </UniformGrid>
+        <DockPanel Grid.Row="5" VerticalAlignment="Bottom">
+          <CheckBox x:Name="MotionChoice" Content="动态光" IsChecked="True" Style="{StaticResource M8.CheckBox}" DockPanel.Dock="Right" Checked="MotionChanged" Unchecked="MotionChanged"/>
+          <TextBlock Text="MiSans · Segoe UI Variable Display" Style="{StaticResource M8.Caption}" FontFamily="{StaticResource M8.Font.Number}"/>
+        </DockPanel>
+      </Grid>
+    </Viewbox>
+  </Grid>
+</Window>

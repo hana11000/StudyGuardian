@@ -24,6 +24,14 @@ public sealed class StudySessionTests
     }
 
     [TestMethod]
+    public void BreakPausesBudgetAndPreservesAnExistingManualPause()
+    {
+        _session.Start("s",Options(60),Study,TimeSpan.Zero);_clock.Advance(20);_session.SetBreakPause(true,Study,TimeSpan.Zero);
+        Assert.AreEqual(PauseReason.Break,_session.Snapshot.PauseReason);_clock.Advance(300);_session.Observe(Game,TimeSpan.Zero);
+        Assert.AreEqual(40,_session.Snapshot.Remaining.TotalSeconds);_session.SetBreakPause(false,Study,TimeSpan.Zero);Assert.AreEqual(PauseReason.None,_session.Snapshot.PauseReason);
+        _session.SetManualPause(true,Study,TimeSpan.Zero);_session.SetBreakPause(true,Study,TimeSpan.Zero);_session.SetBreakPause(false,Study,TimeSpan.Zero);Assert.AreEqual(PauseReason.Manual,_session.Snapshot.PauseReason);
+    }
+    [TestMethod]
     public void DwellBoundaryAndSwitchResetDecision()
     {
         _session.Start("s", Options(), Study, TimeSpan.Zero);

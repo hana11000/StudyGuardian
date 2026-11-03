@@ -88,3 +88,11 @@ Windows 本地学习监督工具：本地监听当前窗口，依次使用规则
 - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwineventhook （注册线程必须保持消息循环，保留委托引用）
 - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getlastinputinfo （当前登录会话的输入时间）
 - https://learn.microsoft.com/en-us/dotnet/core/install/windows （本地 SDK 同时包含桌面运行时）
+
+## M6 的具体约定
+
+- 申诉按进程 + 完整网址/标题放行 10 分钟；应急每会话 3 次，每次 5 分钟；override 不参与升级。
+- 休息停止钩子并拒绝浏览器上报；仅时钟继续运行，到期重新监听，保留此前手动暂停状态。
+- 报告按片段重放当次配置，实际清零边界单独保存到 escalation_resets；不能从 override 片段推断清零。
+- schema 版本 3，新增休息类型和清零表；旧事件不改写。暂停和未知不计入专注率。
+- 全局规则和阈值独立保存，下一次会话生效；隐私开关只裁剪 AI 请求中的标题/URL。

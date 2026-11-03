@@ -1,6 +1,6 @@
 namespace StudyGuardian.Core;
 
-public enum PauseReason { None, SystemWindow, Away, Unavailable, Locked, Suspended, Manual }
+public enum PauseReason { None, SystemWindow, Away, Unavailable, Locked, Suspended, Manual, Break }
 
 public sealed record ActivitySegment(
     string Id,

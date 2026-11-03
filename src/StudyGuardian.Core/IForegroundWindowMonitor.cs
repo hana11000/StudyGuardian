@@ -6,6 +6,7 @@ public interface IForegroundWindowMonitor : IDisposable
     event EventHandler<WindowSnapshot>? Changed;
     void Start();
     void Stop();
+    WindowSnapshot Refresh();
 }
 
 public interface IIdleTimeProvider

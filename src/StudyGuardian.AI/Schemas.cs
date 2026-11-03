@@ -27,4 +27,11 @@ internal static class Schemas
         }) },
         ["supportive_time_limit_minutes"] = new { type = "integer", minimum = 1, maximum = options.MaximumSupportiveMinutes }
     });
+
+    public static object Appeal() => Object(new()
+    {
+        ["approved"]=new {type="boolean"},
+        ["confidence"]=new {type="number",minimum=0,maximum=1},
+        ["reason"]=Text()
+    });
 }

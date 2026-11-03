@@ -17,6 +17,32 @@ public sealed class OpenAiStudyClientTests
     private static HttpResponseMessage Json(string value) => new(HttpStatusCode.OK) { Content = new StringContent(value, Encoding.UTF8, "application/json") };
 
     [TestMethod]
+    [DataRow(true,.95,true)]
+    [DataRow(true,.5,false)]
+    [DataRow(false,.95,false)]
+    public async Task AppealUsesStrictContractAndRequiresConfidentApproval(bool approved,double confidence,bool expected)
+    {
+        string? sent=null;
+        using var http=new HttpClient(new Handler(async(request,ct)=> {sent=await request.Content!.ReadAsStringAsync(ct);return Json(Envelope(JsonSerializer.Serialize(new{approved,confidence,reason="学习用途"})));}));
+        var result=await new OpenAiStudyClient(http,()=>"fake",AiTestOptions.Create(),"test-model").ReviewAppealAsync(new(Request,"查看税法讲解"),default);
+        Assert.AreEqual(expected,result.Approved);
+        using var body=JsonDocument.Parse(sent!);var format=body.RootElement.GetProperty("text").GetProperty("format");
+        Assert.AreEqual("study_appeal",format.GetProperty("name").GetString());Assert.IsTrue(format.GetProperty("strict").GetBoolean());
+        Assert.IsFalse(format.GetProperty("schema").GetProperty("additionalProperties").GetBoolean());
+    }
+
+    [TestMethod]
+    public async Task PrivacyOmitsWindowTitleUrlAndRecentTitlesFromClassification()
+    {
+        string? sent=null;using var http=new HttpClient(new Handler(async(request,ct)=>{sent=await request.Content!.ReadAsStringAsync(ct);return Json(Envelope(Decision));}));
+        await new OpenAiStudyClient(http,()=>"fake",AiTestOptions.Create(),"test-model",new(false,false)).ClassifyAsync(Request with {Recent=[new("Notion.exe","私人笔记",StudyVerdict.OnTask,30)]},default);
+        using var body=JsonDocument.Parse(sent!);using var data=JsonDocument.Parse(body.RootElement.GetProperty("input")[1].GetProperty("content").GetString()!);
+        Assert.AreEqual("",data.RootElement.GetProperty("current").GetProperty("title").GetString());
+        Assert.AreEqual(JsonValueKind.Null,data.RootElement.GetProperty("current").GetProperty("url").ValueKind);
+        Assert.AreEqual("",data.RootElement.GetProperty("recent")[0].GetProperty("title").GetString());
+    }
+
+    [TestMethod]
     public async Task ResponsesContractUsesStrictSchemaAndOnlyProjectsWindowMetadata()
     {
         string? sent = null;

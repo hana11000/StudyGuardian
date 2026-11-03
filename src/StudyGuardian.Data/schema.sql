@@ -38,4 +38,9 @@ CREATE TABLE IF NOT EXISTS decision_cache (
     expires_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ix_cache_expiry ON decision_cache(expires_at);
-PRAGMA user_version = 2;
+CREATE TABLE IF NOT EXISTS escalation_resets (
+    session_id TEXT NOT NULL REFERENCES sessions(id),
+    ts TEXT NOT NULL,
+    PRIMARY KEY(session_id, ts)
+);
+PRAGMA user_version = 3;

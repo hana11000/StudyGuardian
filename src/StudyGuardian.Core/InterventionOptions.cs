@@ -1,6 +1,6 @@
 namespace StudyGuardian.Core;
 
-public sealed class InterventionOptions
+public sealed record InterventionOptions
 {
     public required double ReminderSeconds { get; init; }
     public required double WarningSeconds { get; init; }

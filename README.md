@@ -1,10 +1,10 @@
 # Study Guardian
 
-Windows 学习专注工具。当前交付阶段：**M5：浏览器扩展、网址判定和配对**。
+Windows 学习专注工具。当前交付阶段：**M6：申诉、应急通行、休息、报告和设置**。
 
 ## 使用
 
-双击根目录 `Start.cmd`，或 `dist/StudyGuardian-M5/StudyGuardian.App.exe`。
+双击根目录 `Start.cmd`，或 `dist/StudyGuardian-M6/StudyGuardian.App.exe`。
 
 1. 填写学习目标，选择 25/50/90 分钟或自定义时长、严格度。
 2. 在“允许 / 辅助 / 禁止”中点 `+` 添加规则，点标签的 `×` 删除；配置 API 后也可点“生成规则”，检查并修改标签，再开始。
@@ -45,13 +45,21 @@ AI 通过 Responses API 的 strict JSON Schema 返回结果。每次调用最多
 
 专注率 = 专注时长 /（专注 + 辅助 + 分心时长），不包括未知、系统窗口和暂停；没有已判定时间时显示“—”。手动暂停、锁屏、睡眠、系统窗口及空闲超过 5 分钟后不扣除会话时间。
 
+## 休息、申诉和报告
+
+运行中可休息 5 分钟，期间停止前台监听和标签上报，学习倒计时暂停；可提前结束。每会话有 3 次应急通行，每次 5 分钟。申诉需要配置 AI，明确通过后只放行对应进程与完整网址/标题 10 分钟；到期重新判定。临时放行不触发辅助超时。遮罩锁定期间申诉和应急入口不可用，回到学习始终可用。
+
+会话结束自动显示报告，也可用“报告”选择历史会话。时间轴区分专注、辅助、分心和暂停，辅助超出上限的部分计入分心。新会话保存当次阈值和实际等级清零边界；旧记录缺少阈值时采用默认值。
+
+设置中可调整干预秒数、全局规则、提示音，以及是否向 AI 发送窗口标题和网址。设置保存在 data/preferences.json。
+
 ## 数据
 
 SQLite 保存在对应程序目录的 `data/study-guardian.db`。开发运行的数据位于 `bin/.../data`。
 
 - 会话保存目标、时长、严格度和本次规则；事件保存窗口、停留、暂停原因、判定、来源和干预等级 level。
 - 每 15 秒保存当前片段，切换、结束和正常关闭时收尾。异常退出后，下次启动将未结束会话标记为 interrupted。
-- M1 的旧事件保持 `verdict=NULL`、`source=monitor`；当前来源为 `rule`、`cache`、`llm` 或 `fallback`。
+- M1 的旧事件保持 `verdict=NULL`、`source=monitor`；当前来源为 `rule`、`cache`、`llm`、`fallback` 或 `override`。
 - 未配置或关闭 AI 时无 API 请求。启用后，仅将目标、规则和进程名/标题/URL、近期判定及停留时长发送给 OpenAI，设置 `store=false`；不截图、不读取正文、不记录按键内容。
 - 数据、SDK、缓存和发布文件不进入 Git 提交。
 
@@ -79,8 +87,8 @@ SDK 和缓存位于项目目录，不修改系统 PATH。受限环境可能需�
 
 ## 验证和后续开发
 
-[M5 手动验收](docs/m5-manual-test.md) · [M5 改动文件](docs/m5-files.md) · [M4 手动验收](docs/m4-manual-test.md) · [M3 手动验收](docs/m3-manual-test.md) · [设计](docs/design.md) · [开发约束](AGENTS.md)
+[M6 手动验收](docs/m6-manual-test.md) · [M6 改动文件](docs/m6-files.md) · [M5 手动验收](docs/m5-manual-test.md) · [M5 改动文件](docs/m5-files.md) · [M4 手动验收](docs/m4-manual-test.md) · [M3 手动验收](docs/m3-manual-test.md) · [设计](docs/design.md) · [开发约束](AGENTS.md)
 
-用户已授权后续逐阶段推进。当前尚无申诉或严格退出/守护模式。尚未提供真实 API Key，在线调用待人工验收。M5 的 149 项 .NET 测试和 11 项扩展测试通过。真实浏览器加载、在线判定、多显示器/多 DPI 和遮罩按钮交互保留人工验收。
+用户已授权后续逐阶段推进。严格退出/守护模式留给 M7。尚未提供真实 API Key，在线调用待人工验收。M6 的 174 项 .NET 测试和 11 项扩展测试通过。真实浏览器加载、在线判定、多显示器/多 DPI 和遮罩按钮交互保留人工验收。
 
 BoardUI MCP 已在开发机安装并验证。它的 React/Tailwind 组件不直接用于 WPF；本项目参考布局层级，使用原生 WPF 实现，未添加 UI 框架依赖。

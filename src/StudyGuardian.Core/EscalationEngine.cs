@@ -104,6 +104,8 @@ public sealed class EscalationEngine
         return _distractions.Sum(i => Math.Max(0, ((i.End < now ? i.End : now) - (i.Start > cutoff ? i.Start : cutoff)).Ticks));
     }
     private void ResetSupportive() { _supportiveWindow = null; _supportiveTicks = 0; }
+    public void ResetCurrentEpisode()
+    { ResetEpisode();ResetSupportive();_focusTicks=0;_isDistracting=_supportiveOvertime=false; }
     private void ResetEpisode()
     { _episodeActive = false; _episodeTicks = _offsetTicks = 0; _level = InterventionLevel.None; _lockedUntil = TimeSpan.Zero; }
 }

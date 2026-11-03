@@ -14,9 +14,9 @@ public sealed class SessionController : IAsyncDisposable
 {
     private readonly MonitoringOptions _options;
     private readonly SqliteActivityRepository _repository;
-    private readonly ForegroundWindowMonitor _monitor;
-    private readonly IdleTimeProvider _idleProvider = new();
-    private readonly SystemClock _clock = new();
+    private readonly IForegroundWindowMonitor _monitor;
+    private readonly IIdleTimeProvider _idleProvider;
+    private readonly IClock _clock;
     private readonly StudySession _session;
     private readonly Dispatcher _dispatcher;
     private readonly DispatcherTimer _timer;
@@ -37,6 +37,20 @@ public sealed class SessionController : IAsyncDisposable
     private Task _aiWork = Task.CompletedTask;
     private bool _aiUnavailable;
     private readonly InterventionOptions _interventionOptions;
+    private readonly SessionToolsOptions _toolsOptions;
+    private readonly UserSettingsStore _preferences;
+    private readonly SessionAllowances _allowances;
+    private bool _breaking;
+    private CancellationTokenSource? _sessionLifetime;
+    public SessionToolsSnapshot Tools => _allowances.Snapshot;
+    public bool IsOnBreak => _breaking;
+    public int AppealMinutes => _toolsOptions.AppealMinutes;
+    public int MaximumAppealCharacters => _toolsOptions.MaximumAppealCharacters;
+    public WindowSnapshot? AppealTarget {get;private set;}
+    public string? LastCompletedSessionId {get;private set;}
+    public bool CanUseTools => Snapshot.IsRunning && !IsBusy && !IsFaulted && !_breaking && !_systemPause.Reason.HasValue &&
+        (_escalation?.Snapshot.LockRemaining ?? TimeSpan.Zero)==TimeSpan.Zero;
+    public bool CanAppeal => CanUseTools && _aiSettings.IsConfigured && AppealTarget is not null;
     private EscalationEngine? _escalation;
     private readonly BrowserOptions _browserOptions;
     private readonly BrowserActivityTracker _browser;
@@ -49,7 +63,7 @@ public sealed class SessionController : IAsyncDisposable
     public event EventHandler? ReturnRequested;
     private WindowSnapshot CurrentWindow => _browser.Enrich(_monitor.Current);
     private bool BrowserMonitoring => Snapshot.IsRunning && !Snapshot.IsManuallyPaused && !IsBusy && !IsFaulted && !_disposed &&
-        !_systemPause.Reason.HasValue && Snapshot.PauseReason != PauseReason.Away;
+        !_systemPause.Reason.HasValue && !_breaking && Snapshot.PauseReason != PauseReason.Away;
     private static readonly JsonSerializerOptions BrowserJson = new(JsonSerializerDefaults.Web);
 
     public bool IsReady { get; private set; }
@@ -68,19 +82,22 @@ public sealed class SessionController : IAsyncDisposable
     public event EventHandler? StateChanged;
     public event EventHandler<ActivitySegment>? SegmentSaved;
 
-    public SessionController(MonitoringOptions options, SessionUiOptions sessionOptions, AiOptions aiOptions, AiSettingsStore aiSettings, InterventionOptions interventionOptions, BrowserOptions browserOptions, string databasePath, Dispatcher dispatcher)
+    public SessionController(MonitoringOptions options, SessionUiOptions sessionOptions, AiOptions aiOptions, AiSettingsStore aiSettings, InterventionOptions interventionOptions, BrowserOptions browserOptions, SessionToolsOptions toolsOptions,UserSettingsStore preferences,string databasePath, Dispatcher dispatcher,
+        IForegroundWindowMonitor? foregroundMonitor=null,IIdleTimeProvider? idleProvider=null,IClock? clock=null)
     {
         _options = options;
+        _clock=clock ?? new SystemClock();_idleProvider=idleProvider ?? new IdleTimeProvider();
         _aiOptions = aiOptions;
         _aiSettings = aiSettings;
         _interventionOptions = interventionOptions;
+        _toolsOptions=toolsOptions;_preferences=preferences;_allowances=new(_clock,toolsOptions);
         _browserOptions=browserOptions; _browser=new(_clock,browserOptions);
         BrowserPairing=new(Path.GetDirectoryName(databasePath)!,browserOptions);
         _repository = new(databasePath);
-        _monitor = new(options.MaximumTitleCharacters);
+        _monitor = foregroundMonitor ?? new ForegroundWindowMonitor(options.MaximumTitleCharacters);
         _dispatcher = dispatcher;
         _session = new(_clock, new(TimeSpan.FromSeconds(options.AwayAfterSeconds), TimeSpan.FromSeconds(sessionOptions.DecisionDwellSeconds),
-            TimeSpan.FromMilliseconds(sessionOptions.RegexTimeoutMilliseconds)), options.ProtectedProcesses, Environment.ProcessId);
+            TimeSpan.FromMilliseconds(sessionOptions.RegexTimeoutMilliseconds)), options.ProtectedProcesses, Environment.ProcessId,_allowances.DecisionFor);
         _timer = new(DispatcherPriority.Background, dispatcher) { Interval = TimeSpan.FromMilliseconds(options.IdleSampleMilliseconds) };
         _timer.Tick += TimerTick;
         _monitor.Changed += ForegroundChanged;
@@ -116,10 +133,14 @@ public sealed class SessionController : IAsyncDisposable
         Notify();
         try
         {
-            Options = options with { Rules = options.Rules.ToArray() };
+            var rules=_preferences.Current.GlobalRules.Concat(options.Rules).ToArray();
+            Options = options with { Rules=rules,Intervention=_preferences.Current.Intervention,
+                Policy=new(options.Policy?.GoalSummary ?? options.Goal,rules,options.Policy?.SupportiveTimeLimitMinutes ?? _aiOptions.DefaultSupportiveMinutes) };
+            _allowances.Reset();_breaking=false;AppealTarget=null;
+            _sessionLifetime?.Dispose();_sessionLifetime=new();
             _recent.Clear(); _aiUnavailable = false; _browser.Clear();
             LastStudyWindow = null;
-            _escalation = new(_clock, _interventionOptions, options.Strictness,
+            _escalation = new(_clock, Options.Intervention!, options.Strictness,
                 TimeSpan.FromMinutes(options.Policy?.SupportiveTimeLimitMinutes ?? _aiOptions.DefaultSupportiveMinutes));
             _pipeline = _aiSettings.IsConfigured ? new(_clock, CreateAiClient(), _repository, _aiOptions, _aiSettings.Current.Model) : null;
             _sessionId = Guid.NewGuid().ToString("N");
@@ -138,6 +159,7 @@ public sealed class SessionController : IAsyncDisposable
 
     public Task SetPausedAsync(bool paused)
     {
+        if(_breaking) {EndBreak();return Task.CompletedTask;}
         if (IsBusy || IsFaulted || _disposed || !Snapshot.IsRunning) return Task.CompletedTask;
         try
         {
@@ -156,7 +178,7 @@ public sealed class SessionController : IAsyncDisposable
 
     private void ForegroundChanged(object? sender, WindowSnapshot window)
     {
-        if (!Snapshot.IsRunning || IsFaulted || IsBusy) return;
+        if (!Snapshot.IsRunning || IsFaulted || IsBusy || _breaking) return;
         try
         {
             if (!_systemPause.Reason.HasValue) _idle = _idleProvider.GetIdleTime();
@@ -171,6 +193,13 @@ public sealed class SessionController : IAsyncDisposable
         if (!Snapshot.IsRunning || IsFaulted || IsBusy) return;
         try
         {
+            if(_breaking)
+            {
+                if(Tools.BreakRemaining==TimeSpan.Zero) {EndBreak();return;}
+                Queue(_session.Observe(Snapshot.Window ?? WindowSnapshot.Unavailable,_idle));
+                if(_clock.Elapsed-_lastCheckpoint>=TimeSpan.FromSeconds(_options.CheckpointSeconds)) {Queue(_session.Checkpoint());_lastCheckpoint=_clock.Elapsed;}
+                ProgressChanged();return;
+            }
             if (!_systemPause.Reason.HasValue) _idle = _idleProvider.GetIdleTime();
             Queue(_session.Observe(CurrentWindow, _idle));
             if (_clock.Elapsed - _lastCheckpoint >= TimeSpan.FromSeconds(_options.CheckpointSeconds))
@@ -195,6 +224,7 @@ public sealed class SessionController : IAsyncDisposable
             LastStudyWindow = study;
         if (Snapshot.Window is { } browserWindow && _escalation?.Snapshot is { } escalation && BrowserMonitoring)
             _browser.ObserveEscalation(browserWindow, escalation, Options?.Policy?.GoalSummary ?? Options?.Goal ?? "");
+        if(Snapshot is {PauseReason:PauseReason.None,Window:{ } target,Decision:{CanEnforce:true}} && _escalation?.Snapshot is {IsDistracting:true}) AppealTarget=target;
         ScheduleDecision();
         Notify();
         if (!Snapshot.IsRunning && HasSession && !IsBusy && !IsFaulted) _ = StopAsync();
@@ -210,6 +240,7 @@ public sealed class SessionController : IAsyncDisposable
     private async Task StopCoreAsync()
     {
         IsBusy = true;
+        _sessionLifetime?.Cancel();
         CancelDecision();
         _timer.Stop();
         Notify();
@@ -217,7 +248,7 @@ public sealed class SessionController : IAsyncDisposable
         {
             if (Snapshot.IsRunning)
             {
-                if (!_systemPause.Reason.HasValue)
+                if (!_systemPause.Reason.HasValue && !_breaking)
                 {
                     _idle = _idleProvider.GetIdleTime();
                     Queue(_session.Observe(CurrentWindow, _idle));
@@ -225,13 +256,14 @@ public sealed class SessionController : IAsyncDisposable
                 Queue(_session.Stop());
             }
             _monitor.Stop();
-            _browser.Clear();
+            _browser.Clear();_breaking=false;_allowances.EndBreak();
             var logicalEnd = _session.EndedAt;
             await _aiWork;
             await _writes;
             if (_sessionId is { } id && !IsFaulted)
             {
                 await _repository.EndSessionAsync(id, logicalEnd ?? throw new InvalidOperationException("会话缺少结束时间"));
+                LastCompletedSessionId=id;
                 _sessionId = null;
             }
         }
@@ -254,6 +286,67 @@ public sealed class SessionController : IAsyncDisposable
             if (!IsFaulted) _writes = SaveAfterAsync(_writes, enriched);
         }
     }
+
+    public void BeginBreak()
+    {
+        if(!CanUseTools) return;
+        try
+        {
+            _idle=_idleProvider.GetIdleTime();_monitor.Refresh();
+            Queue(_session.SetBreakPause(true,CurrentWindow,_idle));
+            _allowances.BeginBreak();_breaking=true;_monitor.Stop();CancelDecision();_browser.Clear();
+            ResetEscalation();ProgressChanged();
+        }
+        catch(Exception ex) {Fail("无法开始休息",ex);}
+    }
+    public void EndBreak()
+    {
+        if(!_breaking || IsBusy || _disposed) return;
+        try
+        {
+            _allowances.EndBreak();_breaking=false;
+            if(!_systemPause.Reason.HasValue) _idle=_idleProvider.GetIdleTime();
+            _monitor.Start();Queue(_session.SetBreakPause(false,CurrentWindow,_idle));
+            _lastCheckpoint=_clock.Elapsed;ProgressChanged();
+        }
+        catch(Exception ex) {Fail("无法恢复会话",ex);}
+    }
+    public bool UseEmergencyPass()
+    {
+        if(!CanUseTools || !_allowances.TryUseEmergency()) return false;
+        ApplyAllowance();return true;
+    }
+    public async Task<AppealDecision> AppealAsync(WindowSnapshot target,string explanation,CancellationToken cancellationToken)
+    {
+        if(!CanAppeal || _sessionId is not { } sessionId || Options is null) throw new AiUnavailableException("当前无法申诉");
+        using var linked=CancellationTokenSource.CreateLinkedTokenSource(cancellationToken,_sessionLifetime!.Token);
+        var request=new DecisionRequest(Options.Goal,Options.Rules,target,[],0);
+        var result=await CreateAiClient().ReviewAppealAsync(new(request,explanation),linked.Token);
+        linked.Token.ThrowIfCancellationRequested();
+        if(_sessionId!=sessionId || !Snapshot.IsRunning) return new(false,0,"会话已结束");
+        if(!CanUseTools) return new(false,0,"当前会话已暂停");
+        if(result.Approved) {_allowances.GrantAppeal(target);ApplyAllowance();}
+        return result;
+    }
+    private void ApplyAllowance()
+    {
+        CancelDecision();_idle=_idleProvider.GetIdleTime();_monitor.Refresh();
+        Queue(_session.Observe(CurrentWindow,_idle));_browser.Clear();ResetEscalation();ProgressChanged();
+    }
+    private void ResetEscalation()
+    {
+        _escalation?.ResetCurrentEpisode();
+        if(_sessionId is { } id) _writes=SaveResetAfterAsync(_writes,id,_session.ObservedAt);
+    }
+    private async Task SaveResetAfterAsync(Task previous,string sessionId,DateTimeOffset at)
+    {
+        await previous;if(IsFaulted) return;
+        try {await _repository.SaveEscalationResetAsync(sessionId,at);}
+        catch(Exception ex) {Fail("无法保存会话边界",ex);}
+    }
+    public Task<IReadOnlyList<StoredStudySession>> ReadReportsAsync() => _repository.ReadSessionsAsync(_toolsOptions.ReportSessionLimit);
+    public async Task<SessionReport> ReadReportAsync(StoredStudySession session) => SessionReportBuilder.Build(session,
+        await _repository.ReadSessionSegmentsAsync(session.Id),_interventionOptions,_aiOptions.DefaultSupportiveMinutes,await _repository.ReadEscalationResetsAsync(session.Id));
 
     public void ResetBrowserPairing() { BrowserPairing.Reset(); _browser.Clear(); }
 
@@ -285,7 +378,7 @@ public sealed class SessionController : IAsyncDisposable
         return CreateAiClient().GeneratePolicyAsync(goal, cancellationToken);
     }
 
-    private OpenAiStudyClient CreateAiClient() => new(_http, _aiSettings.ReadKey, _aiOptions, _aiSettings.Current.Model);
+    private OpenAiStudyClient CreateAiClient() => new(_http, _aiSettings.ReadKey, _aiOptions, _aiSettings.Current.Model,_preferences.Current.Privacy,_toolsOptions);
 
     private void ScheduleDecision()
     {
@@ -379,7 +472,7 @@ public sealed class SessionController : IAsyncDisposable
         try
         {
             if(_systemPause.Reason.HasValue) _browser.Clear();
-            if (!_systemPause.Reason.HasValue)
+            if (!_systemPause.Reason.HasValue && !_breaking)
             {
                 _idle = _idleProvider.GetIdleTime();
                 _monitor.Refresh();
@@ -414,7 +507,7 @@ public sealed class SessionController : IAsyncDisposable
         _timer.Tick -= TimerTick;
         _monitor.Changed -= ForegroundChanged;
         _monitor.Dispose();
-        _http.Dispose();
+        _http.Dispose();_sessionLifetime?.Dispose();
         if(_browserServer!=null) await _browserServer.DisposeAsync();
     }
 }

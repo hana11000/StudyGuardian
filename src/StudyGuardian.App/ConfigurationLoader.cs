@@ -29,9 +29,9 @@ public sealed class SessionUiOptions
 
 internal static class ConfigurationLoader
 {
-    private sealed record Configuration(MonitoringOptions Monitoring, SessionUiOptions Session, AiOptions Ai, InterventionOptions Intervention, BrowserOptions Browser);
+    private sealed record Configuration(MonitoringOptions Monitoring, SessionUiOptions Session, AiOptions Ai, InterventionOptions Intervention, BrowserOptions Browser,SessionToolsOptions SessionTools);
 
-    public static (MonitoringOptions Options, SessionUiOptions Session, AiOptions Ai, InterventionOptions Intervention, BrowserOptions Browser, string DatabasePath) Load()
+    public static (MonitoringOptions Options, SessionUiOptions Session, AiOptions Ai, InterventionOptions Intervention, BrowserOptions Browser,SessionToolsOptions SessionTools,string DatabasePath) Load()
     {
         var root = AppContext.BaseDirectory;
         var path = Path.Combine(root, "config", "defaults.json");
@@ -44,6 +44,8 @@ internal static class ConfigurationLoader
         intervention.Validate();
         var browser=config?.Browser ?? throw new InvalidDataException("config/defaults.json 缺少 browser 配置。");
         browser.Validate();
+        var sessionTools=config?.SessionTools ?? throw new InvalidDataException("config/defaults.json 缺少 sessionTools 配置。");
+        sessionTools.Validate();
         if (options.AwayAfterSeconds <= 0 || options.IdleSampleMilliseconds <= 0 || options.CheckpointSeconds <= 0 ||
             options.RecentEventLimit <= 0 || options.MaximumTitleCharacters <= 0 || options.MaximumTitleCharacters == int.MaxValue ||
             options.ProtectedProcesses is null || options.ProtectedProcesses.Length == 0 || options.ProtectedProcesses.Any(string.IsNullOrWhiteSpace) ||
@@ -69,6 +71,6 @@ internal static class ConfigurationLoader
             ai.BrowserProcesses is not { Length: > 0 } || ai.MixedContentDomains is not { Length: > 0 } ||
             ai.BrowserProcesses.Any(string.IsNullOrWhiteSpace) || ai.MixedContentDomains.Any(string.IsNullOrWhiteSpace))
             throw new InvalidDataException("AI 配置中的模型、阈值或数量无效。");
-        return (options, session, ai, intervention, browser, databasePath);
+        return (options, session, ai, intervention, browser,sessionTools,databasePath);
     }
 }

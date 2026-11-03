@@ -13,6 +13,7 @@ public partial class FloatingWindow : Window
     private bool _allowClose;
     public event EventHandler? PauseRequested;
     public event EventHandler? OpenMainRequested;
+    public event EventHandler? BreakRequested;
     public FloatingWindow(double opacity)
     {
         InitializeComponent();
@@ -20,21 +21,23 @@ public partial class FloatingWindow : Window
         Left = SystemParameters.WorkArea.Right - Width - 24;
         Top = SystemParameters.WorkArea.Top + 24;
     }
-    public void Update(StudySessionSnapshot snapshot, string goal, EscalationSnapshot? escalation = null)
+    public void Update(StudySessionSnapshot snapshot, string goal, EscalationSnapshot? escalation = null,TimeSpan? breakRemaining=null,bool canBreak=true)
     {
         StatusDot.Fill = ActivityRow.BrushForState(snapshot, escalation);
         StatusText.Text = ActivityRow.DisplayState(snapshot);
-        TimeText.Text = ActivityRow.Countdown(snapshot.Remaining);
+        TimeText.Text = ActivityRow.Countdown(breakRemaining ?? snapshot.Remaining);
         GoalText.Text = goal.ReplaceLineEndings(" ");
         GoalText.ToolTip = goal;
         FocusText.Text = "专注率 " + (snapshot.FocusRate is { } rate ? rate.ToString("P0") : "—");
-        PauseButton.Content = snapshot.IsManuallyPaused ? "▶" : "Ⅱ";
-        PauseButton.ToolTip = snapshot.IsManuallyPaused ? "继续" : "暂停";
+        PauseButton.Content = snapshot.IsManuallyPaused || breakRemaining.HasValue ? "▶" : "Ⅱ";
+        PauseButton.ToolTip = breakRemaining.HasValue ? "结束休息" : snapshot.IsManuallyPaused ? "继续" : "暂停";
+        BreakButton.IsEnabled=canBreak;
         AutomationProperties.SetName(PauseButton, (string)PauseButton.ToolTip);
     }
     public void ClosePermanently() { _allowClose = true; Close(); }
     private void PauseClick(object sender, RoutedEventArgs e) => PauseRequested?.Invoke(this, EventArgs.Empty);
     private void OpenMainClick(object sender, RoutedEventArgs e) => OpenMainRequested?.Invoke(this, EventArgs.Empty);
+    private void BreakClick(object sender,RoutedEventArgs e) => BreakRequested?.Invoke(this,EventArgs.Empty);
     private void OnClosing(object? sender, CancelEventArgs e)
     {
         if (_allowClose) return;

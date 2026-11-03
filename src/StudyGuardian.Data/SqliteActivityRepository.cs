@@ -32,7 +32,7 @@ public sealed partial class SqliteActivityRepository : IActivityRepository, IDec
     {
         using var version = connection.CreateCommand();
         version.CommandText = "PRAGMA user_version";
-        if (Convert.ToInt32(version.ExecuteScalar(), CultureInfo.InvariantCulture) > 2)
+        if (Convert.ToInt32(version.ExecuteScalar(), CultureInfo.InvariantCulture) > 3)
             throw new InvalidDataException("数据库版本较新，请使用相应版本的 Study Guardian。");
 
         using var journal = connection.CreateCommand();
@@ -69,7 +69,7 @@ public sealed partial class SqliteActivityRepository : IActivityRepository, IDec
         command.Parameters.AddWithValue("$start", Format(startedAt));
         command.Parameters.AddWithValue("$goal", options.Goal);
         command.Parameters.AddWithValue("$policy", JsonSerializer.Serialize(new { duration_seconds = options.Duration.TotalSeconds, rules = options.Rules,
-            goal_summary = options.Policy?.GoalSummary, supportive_time_limit_minutes = options.Policy?.SupportiveTimeLimitMinutes }, PolicyJson));
+            goal_summary = options.Policy?.GoalSummary, supportive_time_limit_minutes = options.Policy?.SupportiveTimeLimitMinutes, intervention=options.Intervention }, PolicyJson));
         command.Parameters.AddWithValue("$strictness", options.Strictness.ToString().ToLowerInvariant());
         command.ExecuteNonQuery();
     });

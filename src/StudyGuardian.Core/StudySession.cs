@@ -7,6 +7,7 @@ public sealed class StudySession
     private readonly string[] _protectedProcesses;
     private readonly int _ownProcessId;
     private readonly ActivityRecorder _recorder;
+    private readonly Func<WindowSnapshot,RuleDecision?>? _temporaryDecision;
     private RuleEngine? _engine;
     private StudySessionOptions? _options;
     private WindowSnapshot? _dwellWindow;
@@ -14,6 +15,7 @@ public sealed class StudySession
     private RuleDecision? _dwellDecision;
     private bool _wasPaused;
     private bool _manualPaused;
+    private bool _breakPaused;
     private PauseReason? _systemPause;
     private bool _completed;
     private long _focusedTicks;
@@ -22,15 +24,18 @@ public sealed class StudySession
     private DateTimeOffset? _budgetEndedAt;
     private long _visitRevision;
 
-    public StudySession(IClock clock, StudyTimingOptions timing, IEnumerable<string> protectedProcesses, int ownProcessId)
+    public StudySession(IClock clock, StudyTimingOptions timing, IEnumerable<string> protectedProcesses, int ownProcessId, Func<WindowSnapshot,RuleDecision?>? temporaryDecision = null)
     {
         if (timing.DecisionDwell < TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(timing));
         _clock = clock;
+        _temporaryDecision=temporaryDecision;
         _timing = timing;
         _protectedProcesses = protectedProcesses.ToArray();
         _ownProcessId = ownProcessId;
         _recorder = new(clock, timing.AwayThreshold, _protectedProcesses, ownProcessId);
     }
+
+    public DateTimeOffset ObservedAt => _recorder.ObservedAt;
 
     public void Start(string sessionId, StudySessionOptions options, WindowSnapshot window, TimeSpan idle)
     {
@@ -44,7 +49,7 @@ public sealed class StudySession
         _options = options with { Goal = options.Goal.Trim(), Rules = options.Rules.ToArray() };
         _focusedTicks = _classifiedTicks = _closedActiveTicks = 0;
         _budgetEndedAt = null;
-        _manualPaused = _completed = false;
+        _manualPaused = _breakPaused = _completed = false;
         _systemPause = null;
         ResetDwell(window);
         _wasPaused = _recorder.Snapshot.PauseReason != PauseReason.None;
@@ -58,10 +63,23 @@ public sealed class StudySession
         Collect(_recorder.Observe(window, idle, changed || _wasPaused ? RuleDecision.Unknown : _dwellDecision ?? RuleDecision.Unknown), output);
         var paused = _recorder.Snapshot.PauseReason != PauseReason.None;
         if (changed || paused || _wasPaused) ResetDwell(window);
-        if (!paused && _clock.Elapsed - _dwellStarted >= _timing.DecisionDwell)
+        if(!paused && _temporaryDecision?.Invoke(window) is { Source:DecisionSource.Override,Verdict:StudyVerdict.Supportive } temporary)
         {
-            _dwellDecision ??= _engine!.Evaluate(window);
-            Collect(_recorder.Observe(window, idle, _dwellDecision), output);
+            if(_dwellDecision!=temporary) { _visitRevision++;_dwellDecision=temporary; }
+            Collect(_recorder.Observe(window,idle,temporary),output);
+        }
+        else if(!paused)
+        {
+            if(_dwellDecision?.Source==DecisionSource.Override)
+            {
+                ResetDwell(window);
+                Collect(_recorder.Observe(window,idle,RuleDecision.Unknown),output);
+            }
+            if(_clock.Elapsed-_dwellStarted>=_timing.DecisionDwell)
+            {
+                _dwellDecision ??= _engine!.Evaluate(window);
+                Collect(_recorder.Observe(window,idle,_dwellDecision),output);
+            }
         }
         _wasPaused = paused;
         if (_recorder.Snapshot.ActiveDuration >= _options!.Duration)
@@ -81,6 +99,13 @@ public sealed class StudySession
         return output;
     }
 
+    public IReadOnlyList<ActivitySegment> SetBreakPause(bool paused,WindowSnapshot window,TimeSpan idle)
+    {
+        List<ActivitySegment> output=[..Observe(window,idle)];
+        if(!_recorder.Snapshot.IsRunning || _breakPaused==paused) return output;
+        _breakPaused=paused;ApplyPause(window,idle,output);return output;
+    }
+
     public IReadOnlyList<ActivitySegment> SetSystemPause(PauseReason? reason, WindowSnapshot window, TimeSpan idle)
     {
         if (reason is not (null or PauseReason.Locked or PauseReason.Suspended)) throw new ArgumentOutOfRangeException(nameof(reason));
@@ -94,7 +119,7 @@ public sealed class StudySession
 
     private void ApplyPause(WindowSnapshot window, TimeSpan idle, List<ActivitySegment> output)
     {
-        var reason = _systemPause ?? (_manualPaused ? PauseReason.Manual : (PauseReason?)null);
+        var reason = _systemPause ?? (_breakPaused ? PauseReason.Break : _manualPaused ? PauseReason.Manual : (PauseReason?)null);
         Collect(reason.HasValue ? _recorder.Suspend(reason.Value) : _recorder.Resume(window, idle, RuleDecision.Unknown), output);
         ResetDwell(window);
         _wasPaused = _recorder.Snapshot.PauseReason != PauseReason.None;

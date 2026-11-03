@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using StudyGuardian.Core;
+using StudyGuardian.Data;
 
 namespace StudyGuardian.App;
 
@@ -21,17 +22,20 @@ public partial class MainWindow : Window
     private readonly AiSettingsStore _aiSettings;
     private CancellationTokenSource? _generationCancellation;
     private bool _generating;
-    private readonly InterventionPresenter _interventions;
+    private InterventionPresenter _interventions;
+    private readonly UserSettingsStore _preferences;
+    private readonly MonitoringOptions _monitoringOptions;
+    private bool _appealing;
 
-    public MainWindow(MonitoringOptions options, SessionUiOptions sessionOptions, AiOptions aiOptions, InterventionOptions interventionOptions, BrowserOptions browserOptions, string databasePath)
+    public MainWindow(MonitoringOptions options, SessionUiOptions sessionOptions, AiOptions aiOptions, InterventionOptions interventionOptions, BrowserOptions browserOptions,SessionToolsOptions toolsOptions,string databasePath)
     {
         InitializeComponent();
-        _sessionOptions = sessionOptions;
+        _sessionOptions = sessionOptions;_monitoringOptions=options;
+        _preferences=new(Path.GetDirectoryName(databasePath)!,interventionOptions);
         _recentLimit = options.RecentEventLimit;
         _aiSettings = new(Path.GetDirectoryName(databasePath)!, aiOptions);
-        _controller = new(options, sessionOptions, aiOptions, _aiSettings, interventionOptions, browserOptions, databasePath, Dispatcher);
-        _interventions = new(interventionOptions, new(options.ProtectedProcesses, Environment.ProcessId, options.MaximumTitleCharacters), Dispatcher, ShowMain);
-        _interventions.Failed += (_, message) => { NoticeText.Text = message; NoticeBorder.Visibility = Visibility.Visible; };
+        _controller = new(options, sessionOptions, aiOptions, _aiSettings, interventionOptions, browserOptions,toolsOptions,_preferences,databasePath, Dispatcher);
+        _interventions = CreateInterventions();
         _controller.ReturnRequested += (_, _) => _interventions.ReturnToStudy();
         SetupControl.Initialize(sessionOptions, aiOptions);
         SetupControl.GeneratePolicyRequested += GeneratePolicyRequested;
@@ -46,10 +50,34 @@ public partial class MainWindow : Window
     {
         _operation = _controller.InitializeAsync();
         await _operation;
-        if (_aiSettings.LoadError is { } error) { NoticeText.Text = error; NoticeBorder.Visibility = Visibility.Visible; }
+        if ((_aiSettings.LoadError ?? _preferences.LoadError) is { } error) { NoticeText.Text = error; NoticeBorder.Visibility = Visibility.Visible; }
     }
     private void SettingsClick(object sender, RoutedEventArgs e)
-    { new SettingsWindow(_aiSettings, _controller) { Owner = this }.ShowDialog(); UpdateState(); }
+    { new SettingsWindow(_aiSettings, _controller,_preferences) { Owner = this }.ShowDialog();_interventions.Dispose();_interventions=CreateInterventions();UpdateState(); }
+    private InterventionPresenter CreateInterventions()
+    {
+        var presenter=new InterventionPresenter(_preferences.Current.Intervention,new(_monitoringOptions.ProtectedProcesses,Environment.ProcessId,_monitoringOptions.MaximumTitleCharacters),Dispatcher,ShowMain);
+        presenter.Failed+=(_,message)=>{NoticeText.Text=message;NoticeBorder.Visibility=Visibility.Visible;};
+        presenter.AppealRequested+=(_,target)=>ShowAppeal(target);
+        presenter.EmergencyRequested+=(_,_)=>_controller.UseEmergencyPass();
+        return presenter;
+    }
+    private void BreakClick(object sender,RoutedEventArgs e) => _controller.BeginBreak();
+    private void EmergencyClick(object sender,RoutedEventArgs e) => _controller.UseEmergencyPass();
+    private void AppealClick(object sender,RoutedEventArgs e) {if(_controller.AppealTarget is { } target) ShowAppeal(target);}
+    private void ShowAppeal(WindowSnapshot target)
+    {
+        if(_appealing || !_controller.CanAppeal || _closing) return;
+        _appealing=true;UpdateState();
+        try {new AppealWindow(target,_controller.MaximumAppealCharacters,_controller.AppealMinutes,(reason,ct)=>_controller.AppealAsync(target,reason,ct)) {Owner=this}.ShowDialog();}
+        finally {_appealing=false;UpdateState();}
+    }
+    private async void ReportClick(object sender,RoutedEventArgs e) => await ShowReportAsync();
+    private async Task ShowReportAsync(string? selectedId=null)
+    {
+        try {var sessions=await _controller.ReadReportsAsync();if(!_closing) new ReportWindow(sessions,_controller.ReadReportAsync,selectedId) {Owner=this}.Show();}
+        catch(Exception) {NoticeText.Text="报告读取失败";NoticeBorder.Visibility=Visibility.Visible;}
+    }
     private async void GeneratePolicyRequested(object? sender, EventArgs e)
     {
         if (_closing || _generating) return;
@@ -95,9 +123,10 @@ public partial class MainWindow : Window
         {
             _floating = new(_sessionOptions.FloatingOpacity);
             _floating.PauseRequested += async (_, _) => await TogglePauseAsync();
+            _floating.BreakRequested += (_,_)=>_controller.BeginBreak();
             _floating.OpenMainRequested += (_, _) => ShowMain();
         }
-        _floating.Update(_controller.Snapshot, _controller.Options!.Goal, _controller.Escalation);
+        _floating.Update(_controller.Snapshot, _controller.Options!.Goal, _controller.Escalation,_controller.IsOnBreak?_controller.Tools.BreakRemaining:null,_controller.CanUseTools);
         _floating.Show();
     }
     private void ShowMain()
@@ -111,7 +140,7 @@ public partial class MainWindow : Window
     {
         var state = _controller.Snapshot;
         var active = _controller.HasSession;
-        if (!_closing) _interventions.Update(state, _controller.Escalation, _controller.Options?.Policy?.GoalSummary ?? _controller.Options?.Goal ?? "", _controller.LastStudyWindow);
+        if (!_closing) _interventions.Update(state, _controller.Escalation, _controller.Options?.Policy?.GoalSummary ?? _controller.Options?.Goal ?? "", _controller.LastStudyWindow,_controller.Tools,_controller.CanAppeal);
         SetupControl.Visibility = active ? Visibility.Collapsed : Visibility.Visible;
         StartButton.Visibility = active || HistoryPanel.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
         RunningPanel.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
@@ -121,19 +150,26 @@ public partial class MainWindow : Window
         StartButton.IsEnabled = SetupControl.IsEnabled;
         PauseButton.IsEnabled = FloatButton.IsEnabled = StopButton.IsEnabled = state.IsRunning && !_controller.IsBusy && !_controller.IsFaulted && !_closing;
         DataFolderButton.IsEnabled = _controller.IsReady;
+        ReportButton.IsEnabled=_controller.IsReady && !_closing;
+        BreakButton.IsEnabled=_controller.CanUseTools;
+        AppealButton.IsEnabled=_controller.CanAppeal && !_appealing;
+        AppealButton.ToolTip=_controller.CanAppeal?null:"需要已判定的窗口和 AI 设置";
+        EmergencyButton.IsEnabled=_controller.CanUseTools && _controller.Tools.EmergencyUsesRemaining>0 && _controller.Tools.EmergencyRemaining==TimeSpan.Zero;
+        EmergencyButton.Content=$"应急通行（{_controller.Tools.EmergencyUsesRemaining}）";
+        ToolsText.Text=_controller.Tools.EmergencyRemaining>TimeSpan.Zero?"通行 "+ActivityRow.Countdown(_controller.Tools.EmergencyRemaining):"";
         if (_controller.Options is { } options)
         {
             GoalText.Text = options.Goal;
             GoalText.ToolTip = options.Goal;
             StatusText.Text = ActivityRow.DisplayState(state);
             StatusDot.Fill = ActivityRow.BrushForState(state, _controller.Escalation);
-            TimeText.Text = ActivityRow.Countdown(state.Remaining);
+            TimeText.Text = ActivityRow.Countdown(_controller.IsOnBreak?_controller.Tools.BreakRemaining:state.Remaining);
             FocusText.Text = "专注率 " + (state.FocusRate is { } rate ? rate.ToString("P0") : "—");
             ProcessText.Text = state.Window?.ProcessName ?? "—";
             WindowTitleText.Text = state.Window?.Title ?? "—";
             WindowTitleText.ToolTip = state.Window?.Title;
-            PauseButton.Content = state.IsManuallyPaused ? "继续" : "暂停";
-            _floating?.Update(state, options.Goal, _controller.Escalation);
+            PauseButton.Content = _controller.IsOnBreak?"结束休息":state.IsManuallyPaused ? "继续" : "暂停";
+            _floating?.Update(state, options.Goal, _controller.Escalation,_controller.IsOnBreak?_controller.Tools.BreakRemaining:null,_controller.CanUseTools);
         }
         SavedText.Text = _controller.IsBusy ? "保存中…" : _controller.LastSavedAt is { } saved ? "已保存 · " + saved.ToString("HH:mm:ss") : "";
         if (_controller.IsFaulted)
@@ -148,6 +184,7 @@ public partial class MainWindow : Window
             _floating?.ClosePermanently();
             _floating = null;
             ShowMain();
+            if(!_closing && !_controller.IsFaulted && _controller.LastCompletedSessionId is { } completed) _=ShowReportAsync(completed);
         }
     }
     private void ShowSavedSegment(ActivitySegment segment)

@@ -22,6 +22,10 @@ internal sealed class InterventionPresenter : IDisposable
     private int _soundedEpisode;
     private bool _updating, _failed, _disposed;
     public event EventHandler<string>? Failed;
+    public event EventHandler<WindowSnapshot>? AppealRequested;
+    public event EventHandler? EmergencyRequested;
+    private SessionToolsSnapshot _tools=new(0,TimeSpan.Zero,TimeSpan.Zero);
+    private bool _canAppeal;
 
     public InterventionPresenter(InterventionOptions options, NativeWindowActions actions, Dispatcher dispatcher, Action showMain)
     {
@@ -29,7 +33,7 @@ internal sealed class InterventionPresenter : IDisposable
         SystemEvents.DisplaySettingsChanged += DisplayChanged;
     }
 
-    public void Update(StudySessionSnapshot current, EscalationSnapshot? state, string goal, WindowSnapshot? study)
+    public void Update(StudySessionSnapshot current, EscalationSnapshot? state, string goal, WindowSnapshot? study,SessionToolsSnapshot tools,bool canAppeal)
     {
         if (_updating || _disposed) return;
         _updating = true;
@@ -37,10 +41,10 @@ internal sealed class InterventionPresenter : IDisposable
         {
             if (!current.IsRunning) { HideAll(); _failed = false; _lastMinimized = null; _interventionTarget = null; _soundedEpisode = 0; return; }
             if (_failed) return;
-            _study = study; _state = state; _goal = goal;
+            _study = study; _state = state; _goal = goal;_tools=tools;_canAppeal=canAppeal;
             var ownOverlay = current.Window is { } window && _surfaces.Any(s => s.Handle == window.Handle) && _displayed == InterventionLevel.Block;
             var eligible = current.PauseReason == PauseReason.None && state is { IsDistracting: true } && current.Window == state.Window && current.Decision.CanEnforce;
-            if (current.IsManuallyPaused || current.PauseReason is PauseReason.Locked or PauseReason.Suspended or PauseReason.Away || state is null ||
+            if (current.IsManuallyPaused || current.PauseReason is PauseReason.Locked or PauseReason.Suspended or PauseReason.Away or PauseReason.Break || state is null ||
                 state.Level < InterventionLevel.Reminder || (!eligible && !ownOverlay)) { HideAll(); return; }
             if (!ownOverlay && current.Window is { } target && !_actions.CanIntervene(target)) { HideAll(); return; }
             if (eligible) _interventionTarget = current.Window;
@@ -49,7 +53,7 @@ internal sealed class InterventionPresenter : IDisposable
             if (state.Level == InterventionLevel.Block && !ownOverlay && current.Window is { } distracting && _lastMinimized != (state.EpisodeId, distracting.Handle))
             { _actions.TryMinimize(distracting); _lastMinimized = (state.EpisodeId, distracting.Handle); }
             if (_displayed != state.Level) Rebuild(state.Level);
-            foreach (var surface in _surfaces) surface.Update(goal, state, ReturnProcess);
+            foreach (var surface in _surfaces) surface.Update(goal, state, ReturnProcess,_tools,_canAppeal);
         }
         catch (Exception) { Fail(); }
         finally { _updating = false; }
@@ -72,8 +76,10 @@ internal sealed class InterventionPresenter : IDisposable
     {
         var surface = new InterventionWindow(kind, _options, activate);
         surface.ReturnRequested += (_, _) => ReturnToStudy();
+        surface.AppealRequested+=(_,_)=> {if(_interventionTarget is { } target) {HideAll();_showMain();AppealRequested?.Invoke(this,target);}};
+        surface.EmergencyRequested+=(_,_)=> {HideAll();_showMain();EmergencyRequested?.Invoke(this,EventArgs.Empty);};
         _surfaces.Add(surface);
-        surface.Update(_goal, _state!, ReturnProcess);
+        surface.Update(_goal, _state!, ReturnProcess,_tools,_canAppeal);
         surface.Show(); surface.Place(monitor, level);
     }
     public void ReturnToStudy()

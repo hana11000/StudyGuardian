@@ -48,6 +48,14 @@
     "browserProcesses": ["chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", "opera.exe", "vivaldi.exe", "arc.exe"],
     "mixedContentDomains": ["bilibili.com", "zhihu.com", "weixin.qq.com", "wechat.com", "youtube.com", "youtu.be", "reddit.com", "douyin.com", "weibo.com", "x.com", "twitter.com", "baidu.com", "bing.com", "google.com"]
   },
+  "sessionTools": {
+    "appealMinutes": 10,
+    "emergencyUses": 3,
+    "emergencyMinutes": 5,
+    "breakMinutes": 5,
+    "maximumAppealCharacters": 200,
+    "reportSessionLimit": 50
+  },
   "browser": {
     "port": 18731,
     "tokenBytes": 32,

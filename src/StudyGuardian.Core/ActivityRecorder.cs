@@ -20,6 +20,8 @@ public sealed class ActivityRecorder
     private TimeSpan _closedActive;
     private TimeSpan _stoppedAt;
 
+    public DateTimeOffset ObservedAt => _originUtc + (_lastObserved - _originElapsed);
+
     public DateTimeOffset? EndedAt => !_running && _window is not null
         ? _originUtc + (_stoppedAt - _originElapsed) : null;
 
@@ -93,7 +95,7 @@ public sealed class ActivityRecorder
 
     public IReadOnlyList<ActivitySegment> Suspend(PauseReason reason)
     {
-        if (reason is not (PauseReason.Locked or PauseReason.Suspended or PauseReason.Manual))
+        if (reason is not (PauseReason.Locked or PauseReason.Suspended or PauseReason.Manual or PauseReason.Break))
             throw new ArgumentOutOfRangeException(nameof(reason));
         if (!_running) return [];
         List<ActivitySegment> segments = [];

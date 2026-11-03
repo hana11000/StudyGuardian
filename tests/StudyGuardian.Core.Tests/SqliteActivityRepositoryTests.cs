@@ -40,6 +40,17 @@ public sealed class SqliteActivityRepositoryTests
             _start, _start.AddSeconds(seconds), TimeSpan.FromSeconds(seconds), reason);
 
     [TestMethod]
+    public async Task ReportsReadOnlyRequestedSessionAndPreserveHistoricalThresholds()
+    {
+        await _repository.StartSessionAsync("second",_start.AddHours(1),Options with {Intervention=EscalationEngineTests.Options,Policy=new("增值税",Options.Rules,7)});
+        await _repository.SaveSegmentAsync(Segment("a",12));
+        await _repository.SaveSegmentAsync(Segment("b",15) with {SessionId="second",Decision=new(StudyVerdict.Supportive,DecisionSource.Override)});
+        var sessions=await _repository.ReadSessionsAsync(10);Assert.HasCount(2,sessions);Assert.AreEqual("second",sessions[0].Id);
+        Assert.AreEqual(90,sessions[0].Intervention!.BlockSeconds);Assert.AreEqual(7,sessions[0].SupportiveMinutes);
+        var records=await _repository.ReadSessionSegmentsAsync("second");Assert.HasCount(1,records);Assert.AreEqual("b",records[0].Id);Assert.AreEqual(DecisionSource.Override,records[0].Decision!.Source);
+    }
+
+    [TestMethod]
     public async Task DecisionCachePersistsAcrossInstancesAndExpiresAtBoundary()
     {
         var entry = new CachedDecision("quoted'key", new(StudyVerdict.Supportive, DecisionSource.Llm, .95, "税法 '讲解'"), _start.AddMinutes(30));
@@ -288,4 +299,13 @@ public sealed class SqliteActivityRepositoryTests
         command.CommandText = "SELECT end FROM sessions WHERE id='session'";
         Assert.AreEqual(last.EndedAt, DateTimeOffset.Parse((string)command.ExecuteScalar()!));
     }
+    [TestMethod] public async Task EscalationResetBoundariesRoundTripAndStayInTheirSession()
+    {
+        var at=new DateTimeOffset(2026,11,3,0,0,0,TimeSpan.Zero);
+        await _repository.SaveEscalationResetAsync("session",at);
+        await _repository.SaveEscalationResetAsync("session",at);
+        CollectionAssert.AreEqual(new[]{at},(await _repository.ReadEscalationResetsAsync("session")).ToArray());
+        Assert.HasCount(0,await _repository.ReadEscalationResetsAsync("different"));
+    }
+
 }

@@ -29,6 +29,14 @@ public sealed class EscalationEngineTests
         _engine.Record(Segment(seconds, window, decision, pause));
 
     [TestMethod]
+    public void ExplicitResetClearsCurrentBlockButPreservesHistory()
+    {
+        Add(100); _engine.ResetCurrentEpisode();
+        Assert.AreEqual(InterventionLevel.None,_engine.Snapshot.Level); Assert.IsFalse(_engine.Snapshot.IsDistracting);
+        Assert.AreEqual(100,_engine.Snapshot.TotalDistraction.TotalSeconds); Assert.AreEqual(1,_engine.Snapshot.BlockCount);
+        Assert.AreEqual(InterventionLevel.Grace,Add(1).Level);
+    }
+    [TestMethod]
     public void StandardBoundariesAndCooldownUseInjectedClock()
     {
         Assert.AreEqual(InterventionLevel.Grace, Add(9).Level);

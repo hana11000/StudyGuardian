@@ -8,6 +8,13 @@ public enum CacheScope { ExactUrl, Domain, Process, Title }
 public sealed record AiDecision(StudyVerdict Verdict, double Confidence, string Reason, CacheScope CacheScope, int CacheTtlMinutes);
 public sealed record DecisionTicket(long Revision, WindowSnapshot Window, double DwellSeconds);
 public sealed record CachedDecision(string Key, RuleDecision Decision, DateTimeOffset ExpiresAt);
+public sealed record AiPrivacy(bool SendWindowTitle=true, bool SendUrl=true);
+public sealed record AppealRequest(DecisionRequest Context,string Explanation);
+public sealed record AppealDecision(bool Approved,double Confidence,string Reason);
+public interface IAppealReviewer
+{
+    Task<AppealDecision> ReviewAppealAsync(AppealRequest request,CancellationToken cancellationToken);
+}
 
 public interface IStudyAi
 {

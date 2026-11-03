@@ -1,6 +1,6 @@
 @echo off
 setlocal
-set "GUARDIAN_EXE=%~dp0dist\StudyGuardian-M5\StudyGuardian.App.exe"
+set "GUARDIAN_EXE=%~dp0dist\StudyGuardian-M6\StudyGuardian.App.exe"
 if not exist "%GUARDIAN_EXE%" (
   echo Build the app first: powershell -File scripts\publish.ps1
   pause

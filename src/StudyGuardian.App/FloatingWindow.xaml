@@ -1,7 +1,7 @@
 <Window x:Class="StudyGuardian.App.FloatingWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Study Guardian · 悬浮窗" Width="372" Height="106" WindowStyle="None" ResizeMode="NoResize"
+        Title="Study Guardian · 悬浮窗" Width="400" Height="106" WindowStyle="None" ResizeMode="NoResize"
         AllowsTransparency="True" Background="Transparent" Topmost="True" ShowInTaskbar="False" ShowActivated="False"
         Style="{StaticResource {x:Type Window}}" Closing="OnClosing">
   <Border Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="18,15" MouseLeftButtonDown="DragWindow">
@@ -20,6 +20,7 @@
       </Grid>
       <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,5,0,0">
         <Button x:Name="PauseButton" Content="Ⅱ" Padding="7,4" Background="Transparent" BorderThickness="0" Click="PauseClick" ToolTip="暂停" AutomationProperties.Name="暂停" />
+        <Button x:Name="BreakButton" Content="☕" Padding="7,4" Background="Transparent" BorderThickness="0" Click="BreakClick" ToolTip="休息" AutomationProperties.Name="休息" />
         <Button Content="↗" Padding="7,4" Background="Transparent" BorderThickness="0" Click="OpenMainClick" ToolTip="打开主窗口" AutomationProperties.Name="打开主窗口" />
       </StackPanel>
     </Grid>

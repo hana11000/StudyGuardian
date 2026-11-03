@@ -17,9 +17,12 @@ internal sealed class InterventionWindow : Window
     private readonly Border _border = new();
     private readonly TextBlock _heading = new(), _goal = new(), _detail = new(), _lock = new();
     private readonly Button _return = new();
+    private readonly Button _appeal=new(){Content="申诉"},_emergency=new();
     private EscalationSnapshot? _state;
     private bool _allowClose;
     public event EventHandler? ReturnRequested;
+    public event EventHandler? AppealRequested;
+    public event EventHandler? EmergencyRequested;
     public long Handle => new WindowInteropHelper(this).Handle.ToInt64();
 
     public InterventionWindow(InterventionSurface surface, InterventionOptions options, bool activate)
@@ -61,10 +64,13 @@ internal sealed class InterventionWindow : Window
         _lock.HorizontalAlignment = block ? HorizontalAlignment.Center : HorizontalAlignment.Left; _lock.Margin = new(0, 14, 0, 0);
         if (block) { _heading.TextAlignment = _goal.TextAlignment = _detail.TextAlignment = TextAlignment.Center; }
         panel.Children.Add(_heading); panel.Children.Add(_goal); panel.Children.Add(_detail); panel.Children.Add(_return); panel.Children.Add(_lock);
+        var tools=new WrapPanel {Margin=new(0,12,0,0),HorizontalAlignment=block?HorizontalAlignment.Center:HorizontalAlignment.Left};
+        _appeal.Margin=new(0,0,8,0);_appeal.Click+=(_,_)=>AppealRequested?.Invoke(this,EventArgs.Empty);_emergency.Click+=(_,_)=>EmergencyRequested?.Invoke(this,EventArgs.Empty);
+        tools.Children.Add(_appeal);tools.Children.Add(_emergency);panel.Children.Add(tools);
         _border.Child = panel; Content = _border;
     }
 
-    public void Update(string goal, EscalationSnapshot state, string? studyProcess)
+    public void Update(string goal, EscalationSnapshot state, string? studyProcess,SessionToolsSnapshot tools,bool canAppeal)
     {
         _state = state;
         if (_surface == InterventionSurface.Frame) return;
@@ -78,6 +84,12 @@ internal sealed class InterventionWindow : Window
         _return.Content = string.IsNullOrWhiteSpace(studyProcess) ? "回到学习" : "回到 " + System.IO.Path.GetFileNameWithoutExtension(studyProcess);
         _lock.Visibility = _surface == InterventionSurface.Block && state.LockRemaining > TimeSpan.Zero ? Visibility.Visible : Visibility.Collapsed;
         _lock.Text = "锁定 " + ActivityRow.Countdown(state.LockRemaining);
+        var unlocked=_surface!=InterventionSurface.Block || state.LockRemaining==TimeSpan.Zero;
+        _appeal.Visibility=unlocked?Visibility.Visible:Visibility.Collapsed;_appeal.IsEnabled=canAppeal;
+        _appeal.Content=state.Level==InterventionLevel.Reminder?"这是学习需要":"申诉";
+        _appeal.ToolTip=canAppeal?null:"请先配置 AI";
+        _emergency.Visibility=_surface==InterventionSurface.Block && unlocked?Visibility.Visible:Visibility.Collapsed;
+        _emergency.Content=$"应急通行（{tools.EmergencyUsesRemaining}）";_emergency.IsEnabled=tools.EmergencyUsesRemaining>0 && tools.EmergencyRemaining==TimeSpan.Zero;
     }
 
     public void Place(DisplayMonitor monitor, InterventionLevel level)

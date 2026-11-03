@@ -1,9 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup><TargetFramework>net8.0-windows</TargetFramework><IsTestProject>true</IsTestProject><IsPackable>false</IsPackable></PropertyGroup>
+  <PropertyGroup><TargetFramework>net8.0-windows</TargetFramework><UseWPF>true</UseWPF><IsTestProject>true</IsTestProject><IsPackable>false</IsPackable></PropertyGroup>
   <ItemGroup>
+    <Using Include="System.IO" />
+    <Using Include="System.Net.Http" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="MSTest.TestAdapter" Version="3.11.1" />
     <PackageReference Include="MSTest.TestFramework" Version="3.11.1" />
     <ProjectReference Include="../../src/StudyGuardian.Monitor/StudyGuardian.Monitor.csproj" />
+    <ProjectReference Include="../../src/StudyGuardian.App/StudyGuardian.App.csproj" />
+    <Content Include="../../config/defaults.json" Link="config/defaults.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

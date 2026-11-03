@@ -26,13 +26,16 @@ public sealed class AmbientBackgroundTests
     });
 
     [TestMethod]
-    public Task SelectedPillHasAnOffsetKeyboardFocusOutlineInBothThemes() => ExitWorkflowTests.RunUi(() =>
+    [DataRow("M8.PillChoice")]
+    [DataRow("M8.CheckBox")]
+    public Task SelectedPillHasAnOffsetKeyboardFocusOutlineInBothThemes(string style) => ExitWorkflowTests.RunUi(() =>
     {
         foreach(var dark in new[]{false,true})
         {
             _=Create(out var resources);
             if(dark) resources.Resources.MergedDictionaries[1]=Theme("Dark");
-            var pill=new RadioButton {Content="50",Width=100,Height=40,IsChecked=true,Style=(Style)resources.FindResource("M8.PillChoice")};
+            System.Windows.Controls.Primitives.ToggleButton pill=style=="M8.CheckBox"?new CheckBox():new RadioButton();
+            pill.Content="50";pill.Width=100;pill.Height=40;pill.IsChecked=true;pill.Style=(Style)resources.FindResource(style);
             var host=new Border {Resources=resources.Resources,Padding=new Thickness(8),Background=(Brush)resources.FindResource("M8.Background"),Child=pill};
             host.Measure(new Size(116,56));host.Arrange(new Rect(0,0,116,56));host.UpdateLayout();
             var before=Pixels(host);

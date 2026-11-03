@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using StudyGuardian.Core;
+using StudyGuardian.App.Controls;
 
 namespace StudyGuardian.App;
 
@@ -45,14 +46,14 @@ public partial class RuleGroupControl : UserControl
         foreach (var rule in _rules)
         {
             var panel = new StackPanel { Orientation = Orientation.Horizontal };
-            panel.Children.Add(new TextBlock { Text = TypeLabel(rule.MatchType) + " · " + rule.Pattern, MaxWidth = 255,
-                TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center, ToolTip = rule.Pattern });
+            panel.Children.Add(new TextBlock { Text = rule.Pattern, MaxWidth = 255,
+                TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center, ToolTip = TypeLabel(rule.MatchType) + " · " + rule.Pattern });
             var remove = new Button { Content = "×", Padding = new Thickness(6, 0, 0, 0), Margin = new Thickness(6, 0, 0, 0),
                 Background = Brushes.Transparent, BorderThickness = new Thickness(0), Foreground = (Brush)FindResource("MutedBrush") };
             AutomationProperties.SetName(remove, "删除规则 " + rule.Pattern);
             remove.Click += (_, _) => { _rules.Remove(rule); RenderTags(); };
             panel.Children.Add(remove);
-            TagsPanel.Children.Add(new Border { Child = panel, CornerRadius = new CornerRadius(7), Padding = new Thickness(10, 7, 8, 7),
+            TagsPanel.Children.Add(new PillBorder { Child = panel, Padding = new Thickness(10, 7, 8, 7),
                 Background = (Brush)FindResource("RaisedBrush"), Margin = new Thickness(0, 0, 6, 6) });
         }
         var add = new Button { Content = "+", Width = 34, Height = 34, Padding = new Thickness(0), Margin = new Thickness(0, 0, 0, 6),

@@ -1,7 +1,7 @@
 <UserControl x:Class="StudyGuardian.App.RuleGroupControl"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <Grid Margin="0,10">
+  <Grid Margin="0,6">
     <Grid.ColumnDefinitions><ColumnDefinition Width="70" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
     <StackPanel Orientation="Horizontal" VerticalAlignment="Top" Margin="0,8,0,0">
       <Ellipse x:Name="KindDot" Width="7" Height="7" Margin="0,0,8,0" />

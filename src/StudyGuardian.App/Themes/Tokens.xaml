@@ -41,6 +41,26 @@
   <Duration x:Key="M8.Motion.DriftC">0:0:22</Duration>
   <!-- AutoReverse completes the four-second breathing cycle. -->
   <Duration x:Key="M8.Motion.BreathHalfCycle">0:0:2</Duration>
+  <sys:Double x:Key="M8.Float.Width">260</sys:Double>
+  <CornerRadius x:Key="M8.Radius.Float">22</CornerRadius>
+  <sys:Double x:Key="M8.Float.CollapsedHeight">44</sys:Double>
+  <sys:Double x:Key="M8.Float.ExpandedHeight">112</sys:Double>
+  <sys:Double x:Key="M8.Float.TimerSize">22</sys:Double>
+  <sys:Double x:Key="M8.Float.IdleOpacity">0.5</sys:Double>
+  <Duration x:Key="M8.Float.IdleDelay">0:2:0</Duration>
+  <Duration x:Key="M8.Float.IdleTick">0:0:1</Duration>
+  <Duration x:Key="M8.Motion.Expand">0:0:0.3</Duration>
+  <sys:Double x:Key="M8.Warning.EdgeWidth">80</sys:Double>
+  <sys:Double x:Key="M8.Warning.EdgeOpacity">0.65</sys:Double>
+  <sys:Double x:Key="M8.Notice.Width">340</sys:Double>
+  <sys:Double x:Key="M8.Notice.Gap">8</sys:Double>
+  <sys:Double x:Key="M8.Type.LockTimer">72</sys:Double>
+  <sys:Double x:Key="M8.Ring.Thickness">12</sys:Double>
+  <CornerRadius x:Key="M8.Radius.Timeline">6</CornerRadius>
+  <LinearGradientBrush x:Key="M8.FocusGradient" StartPoint="0,0" EndPoint="1,1">
+    <GradientStop Color="{DynamicResource M8.Focus.A}" Offset="0"/>
+    <GradientStop Color="{DynamicResource M8.Focus.B}" Offset="1"/>
+  </LinearGradientBrush>
   <CubicEase x:Key="M8.Ease.Soft" EasingMode="EaseInOut"/>
   <BackEase x:Key="M8.Ease.Enter" Amplitude="0.3" EasingMode="EaseOut"/>
   <ImageBrush x:Key="M8.Noise" ImageSource="/StudyGuardian.App;component/Assets/Textures/noise-128.png"

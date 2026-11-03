@@ -6,6 +6,7 @@ using System.Windows;
 using StudyGuardian.Core;
 using StudyGuardian.Data;
 using StudyGuardian.Monitor;
+using StudyGuardian.App.Controls;
 
 namespace StudyGuardian.App;
 
@@ -62,7 +63,7 @@ public partial class MainWindow : Window
         _operation = _controller.InitializeAsync();
         await _operation;
         if(_closing) return;
-        _tray=new(ShowMain,ShowFloating,()=>_ = TogglePauseAsync(),()=>_controller.BeginBreak(),Close);
+        _tray=new(ShowMain,()=>ShowFloating(true),()=>_ = TogglePauseAsync(),()=>_controller.BeginBreak(),Close);
         ApplyDesktopSettings();UpdateState();
         if ((_aiSettings.LoadError ?? _preferences.LoadError) is { } error) { NoticeText.Text = error; NoticeBorder.Visibility = Visibility.Visible; }
     }
@@ -77,7 +78,7 @@ public partial class MainWindow : Window
     {_systemExit=true;_watchdog.Stop();_exitDialog?.Close();}
     private InterventionPresenter CreateInterventions()
     {
-        var presenter=new InterventionPresenter(_preferences.Current.Intervention,new(_monitoringOptions.ProtectedProcesses,Environment.ProcessId,_monitoringOptions.MaximumTitleCharacters),Dispatcher,ShowMain);
+        var presenter=new InterventionPresenter(_preferences.Current.Intervention,new(_monitoringOptions.ProtectedProcesses,Environment.ProcessId,_monitoringOptions.MaximumTitleCharacters),Dispatcher,ShowMain,GetFloatingBounds);
         presenter.Failed+=(_,message)=>{NoticeText.Text=message;NoticeBorder.Visibility=Visibility.Visible;};
         presenter.AppealRequested+=(_,target)=>ShowAppeal(target);
         presenter.EmergencyRequested+=(_,_)=>_controller.UseEmergencyPass();
@@ -134,10 +135,10 @@ public partial class MainWindow : Window
     }
     private void FloatClick(object sender, RoutedEventArgs e)
     {
-        ShowFloating();
         WindowState = WindowState.Minimized;
+        ShowFloating(true);
     }
-    private void ShowFloating()
+    private void ShowFloating(bool requestFocus=false)
     {
         if (!_controller.Snapshot.IsRunning) return;
         if (_floating is null)
@@ -146,9 +147,20 @@ public partial class MainWindow : Window
             _floating.PauseRequested += async (_, _) => await TogglePauseAsync();
             _floating.BreakRequested += (_,_)=>_controller.BeginBreak();
             _floating.OpenMainRequested += (_, _) => ShowMain();
+            _floating.EndRequested += (_,_) => StopClick(this,new RoutedEventArgs());
+            _floating.LocationChanged += (_,_) => _interventions.RefreshPlacement();
+            _floating.SizeChanged += (_,_) => _interventions.RefreshPlacement();
         }
-        _floating.Update(_controller.Snapshot, _controller.Options!.Goal, _controller.Escalation,_controller.IsOnBreak?_controller.Tools.BreakRemaining:null,_controller.CanUseTools,_controller.AiStatus,_controller.AiStatusDetail);
+        _floating.Update(_controller.Snapshot, _controller.Options!.Policy?.GoalSummary ?? _controller.Options.Goal, _controller.Escalation,_controller.IsOnBreak?_controller.Tools.BreakRemaining:null,_controller.CanUseTools,_controller.AiStatus,_controller.AiStatusDetail);
         _floating.Show();
+        if(requestFocus)_floating.FocusControls();
+    }
+    private Rect? GetFloatingBounds()
+    {
+        if(_floating is not {IsVisible:true} floating)return null;
+        var origin=floating.PointToScreen(new Point(0,0));
+        var dpi=System.Windows.Media.VisualTreeHelper.GetDpi(floating);
+        return new Rect(origin,new Size(floating.ActualWidth*dpi.DpiScaleX,floating.ActualHeight*dpi.DpiScaleY));
     }
     private void ShowMain()
     {
@@ -161,6 +173,7 @@ public partial class MainWindow : Window
     private void UpdateState()
     {
         var state = _controller.Snapshot;
+        FrostWindow.SetState(this, _controller.HasSession ? UiVisuals.StateFor(state, _controller.Escalation, _controller.IsOnBreak ? _controller.Tools.BreakRemaining : null) : AmbientState.Focus);
         var active = _controller.HasSession;
         _tray?.Update(state.IsRunning,state.IsManuallyPaused || _controller.IsOnBreak,_controller.CanUseTools);
         if (!_closing) _interventions.Update(state, _controller.Escalation, _controller.Options?.Policy?.GoalSummary ?? _controller.Options?.Goal ?? "", _controller.LastStudyWindow,_controller.Tools,_controller.CanAppeal);
@@ -186,14 +199,14 @@ public partial class MainWindow : Window
             GoalText.Text = options.Goal;
             GoalText.ToolTip = options.Goal;
             StatusText.Text = ActivityRow.DisplayState(state);
-            StatusDot.Fill = ActivityRow.BrushForState(state, _controller.Escalation);
+            StatusDot.SetResourceReference(System.Windows.Shapes.Shape.FillProperty,$"M8.{FrostWindow.GetState(this)}Dot");
             TimeText.Text = ActivityRow.Countdown(_controller.IsOnBreak?_controller.Tools.BreakRemaining:state.Remaining);
             FocusText.Text = "专注率 " + (state.FocusRate is { } rate ? rate.ToString("P0") : "—");
             ProcessText.Text = state.Window?.ProcessName ?? "—";
             WindowTitleText.Text = state.Window?.Title ?? "—";
             WindowTitleText.ToolTip = state.Window?.Title;
             PauseButton.Content = _controller.IsOnBreak?"结束休息":state.IsManuallyPaused ? "继续" : "暂停";
-            _floating?.Update(state, options.Goal, _controller.Escalation,_controller.IsOnBreak?_controller.Tools.BreakRemaining:null,_controller.CanUseTools,_controller.AiStatus,_controller.AiStatusDetail);
+            _floating?.Update(state, options.Policy?.GoalSummary ?? options.Goal, _controller.Escalation,_controller.IsOnBreak?_controller.Tools.BreakRemaining:null,_controller.CanUseTools,_controller.AiStatus,_controller.AiStatusDetail);
         }
         SavedText.Text = _controller.IsBusy ? "保存中…" : _controller.LastSavedAt is { } saved ? "已保存 · " + saved.ToString("HH:mm:ss") : "";
         if (_controller.IsFaulted)

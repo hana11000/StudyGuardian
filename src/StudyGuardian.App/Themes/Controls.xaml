@@ -136,15 +136,18 @@
     <Setter Property="Foreground" Value="{DynamicResource M8.Secondary}"/><Setter Property="FontSize" Value="{StaticResource M8.Type.Caption}"/>
     <Setter Property="Cursor" Value="Hand"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/>
     <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox">
-      <StackPanel x:Name="Shell" Orientation="Horizontal">
-        <Border x:Name="Box" Width="18" Height="18" CornerRadius="6" BorderBrush="{DynamicResource M8.Secondary}" BorderThickness="{StaticResource M8.Border.Thin}" Background="{DynamicResource M8.Transparent}" Margin="0,0,8,0">
-          <Path x:Name="Mark" Data="M 3,8 L 6.5,11.5 L 13,5" Stroke="{DynamicResource M8.OnPrimary}" StrokeThickness="1.5" Visibility="Collapsed"/>
-        </Border>
+      <DockPanel x:Name="Shell">
+        <Grid DockPanel.Dock="Left" Width="18" Height="18" Margin="0,0,8,0">
+          <Border x:Name="Box" CornerRadius="6" BorderBrush="{DynamicResource M8.Secondary}" BorderThickness="{StaticResource M8.Border.Thin}" Background="{DynamicResource M8.Transparent}">
+            <Path x:Name="Mark" Data="M 3,8 L 6.5,11.5 L 13,5" Stroke="{DynamicResource M8.OnPrimary}" StrokeThickness="1.5" Visibility="Collapsed"/>
+          </Border>
+          <Border x:Name="FocusOutline" CornerRadius="8" BorderBrush="{DynamicResource M8.Text}" BorderThickness="{StaticResource M8.Border.Thin}" Margin="-3" Opacity="0" IsHitTestVisible="False"/>
+        </Grid>
         <ContentPresenter VerticalAlignment="Center" RecognizesAccessKey="True"/>
-      </StackPanel>
+      </DockPanel>
       <ControlTemplate.Triggers>
         <Trigger Property="IsChecked" Value="True"><Setter TargetName="Box" Property="Background" Value="{DynamicResource M8.Primary}"/><Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource M8.Primary}"/><Setter TargetName="Mark" Property="Visibility" Value="Visible"/></Trigger>
-        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Box" Property="BorderThickness" Value="2"/></Trigger>
+        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="FocusOutline" Property="Opacity" Value="1"/></Trigger>
         <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Shell" Property="Opacity" Value="{StaticResource M8.Disabled.Opacity}"/></Trigger>
       </ControlTemplate.Triggers>
     </ControlTemplate></Setter.Value></Setter>
@@ -169,7 +172,7 @@
           </ControlTemplate></ToggleButton.Template>
         </ToggleButton>
         <Border x:Name="Focus" BorderBrush="{DynamicResource M8.Text}" BorderThickness="{StaticResource M8.Border.Thin}" CornerRadius="{StaticResource M8.Radius.Input}" Visibility="Collapsed" IsHitTestVisible="False"/>
-        <ContentPresenter Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" Margin="16,12,40,12" VerticalAlignment="Center" IsHitTestVisible="False"/>
+        <ContentPresenter Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" ClipToBounds="True" Margin="16,12,40,12" VerticalAlignment="Center" IsHitTestVisible="False"/>
         <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" AllowsTransparency="True" Focusable="False">
           <Border Background="{DynamicResource M8.Popup}" BorderBrush="{DynamicResource M8.Line}" BorderThickness="{StaticResource M8.Border.Thin}" CornerRadius="{StaticResource M8.Radius.Input}" Padding="8" Margin="0,8,0,0" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}">
             <ScrollViewer MaxHeight="280"><ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/></ScrollViewer>

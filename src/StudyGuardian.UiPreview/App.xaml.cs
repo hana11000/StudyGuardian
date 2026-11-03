@@ -8,9 +8,24 @@ namespace StudyGuardian.UiPreview;
 
 public partial class PreviewApp : Application
 {
-    protected override void OnStartup(StartupEventArgs e)
+    protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        if(e.Args.Length==2 && e.Args[0]=="--production-render")
+        {
+            ShutdownMode=ShutdownMode.OnExplicitShutdown;
+            try {await ProductionPreview.RenderAsync(Path.GetFullPath(e.Args[1]));Shutdown();}
+            catch(Exception ex){Directory.CreateDirectory(e.Args[1]);File.WriteAllText(Path.Combine(e.Args[1],"render-error.log"),ex.ToString());Shutdown(1);}
+            return;
+        }
+        if(e.Args.Length==2 && e.Args[0]=="--floating-smoke"){ProductionPreview.ShowFloatingSmoke(Path.GetFullPath(e.Args[1]));return;}
+        if(e.Args.Length==2 && e.Args[0]=="--floating-interaction-smoke")
+        {
+            ShutdownMode=ShutdownMode.OnExplicitShutdown;
+            try {await ProductionPreview.VerifyFloatingInteractionAsync(Path.GetFullPath(e.Args[1]));Shutdown();}
+            catch(Exception ex){Directory.CreateDirectory(e.Args[1]);File.WriteAllText(Path.Combine(e.Args[1],"interaction-error.log"),ex.ToString());Shutdown(1);}
+            return;
+        }
         if (e.Args.Length==2 && e.Args[0]=="--render")
         {
             RenderPreview(Path.GetFullPath(e.Args[1]));Shutdown();return;

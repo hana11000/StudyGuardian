@@ -1,0 +1,15 @@
+.tools/
+.nuget/
+.artifacts/
+dist/
+.superpowers/
+**/bin/
+**/obj/
+**/TestResults/
+data/
+*.db
+*.db-shm
+*.db-wal
+.vs/
+*.user
+*.suo
